@@ -54,7 +54,7 @@
 | `HF_EMBED_MODEL` | No | Embedding model (default: `sentence-transformers/all-MiniLM-L6-v2`, dim 384) |
 | `HF_EMBED_BATCH_SIZE` | No | Batch size for embedding (default: 32) |
 | `PINECONE_API_KEY` | Yes | Pinecone API key（雲端服務，**不需 host**） |
-| `PINECONE_INDEX_NAME` | No | Index name (default: `child_online_safety_docs`) |
+| `PINECONE_INDEX_NAME` | No | Index name (default: `hugging-face-v1`) |
 | `PINECONE_ENVIRONMENT` or `PINECONE_REGION` | No | 建立 index 時用的 region（如 `us-east-1`） |
 | `PINECONE_DIM` | No | Embedding dimension; **must match model** (e.g. `384` for MiniLM-L6-v2) |
 
@@ -74,7 +74,13 @@ npm run run:local -- ./raw_documents
 
 # 只測 embedding（不寫入 Pinecone）
 npm run run:embed-only
+
+# 檢索測試：用問題查 Pinecone，印出 topK 筆與 context 字串（給 LLM 用）
+npm run run:query
+npx tsx src/run-query.ts "你的問題"   # 自訂問題
 ```
+
+**從 Pinecone 檢索並送給 LLM**：見 [RAG_RETRIEVAL_GUIDE.md](./RAG_RETRIEVAL_GUIDE.md)。
 
 或用程式呼叫 ingest：
 

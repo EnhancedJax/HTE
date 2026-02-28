@@ -36,7 +36,7 @@ export async function handler(event: IngestEvent): Promise<IngestResponse> {
     await upsertChunks(embedded);
 
     const uniqueDocs = new Set(embedded.map((c) => c.metadata.doc_id)).size;
-    const indexName = process.env.PINECONE_INDEX_NAME?.trim() || "child_online_safety_docs";
+    const indexName = process.env.PINECONE_INDEX_NAME?.trim() || "hugging-face-v1";
 
     return {
       statusCode: 200,

@@ -20,6 +20,8 @@
     "motion": "^12.34.3",
     "next": "16.1.6",
     "ogl": "^1.0.11",
+    "@huggingface/inference": "^4.13.14",
+    "@pinecone-database/pinecone": "^4.0.0",
     "openai": "^6.25.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",

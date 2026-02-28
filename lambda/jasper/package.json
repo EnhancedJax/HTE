@@ -9,7 +9,8 @@
     "run:local": "npx tsx src/run-local.ts",
     "run:embed-only": "npx tsx src/run-embed-only.ts",
     "validate:crawler": "npx tsx src/validate-crawler-format.ts",
-    "test:e2e": "npx tsx src/test-e2e.ts"
+    "test:e2e": "npx tsx src/test-e2e.ts",
+    "run:query": "npx tsx src/run-query.ts"
   },
   "dependencies": {
     "@huggingface/inference": "^4.13.14",

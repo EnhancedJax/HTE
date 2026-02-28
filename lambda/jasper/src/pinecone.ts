@@ -4,7 +4,7 @@
 import { Pinecone } from "@pinecone-database/pinecone";
 import type { EmbeddedChunk } from "./types.js";
 
-const DEFAULT_INDEX_NAME = "child_online_safety_docs";
+const DEFAULT_INDEX_NAME = "hugging-face-v1";
 const DEFAULT_REGION = "us-east-1";
 const DEFAULT_METRIC = "cosine";
 const UPSERT_BATCH_SIZE = 100;
@@ -30,8 +30,9 @@ export async function getOrCreateIndex(): Promise<{ indexName: string; dimension
   const exists = list.indexes?.some((i) => i.name === indexName);
 
   if (!exists) {
+    const safeName = indexName.replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "default-index";
     await pc.createIndex({
-      name: indexName,
+      name: safeName,
       dimension,
       metric: DEFAULT_METRIC as "cosine",
       spec: {
@@ -55,10 +56,12 @@ export async function upsertChunks(embedded: EmbeddedChunk[]): Promise<void> {
   const pc = new Pinecone({ apiKey });
   const index = pc.index(indexName);
 
+  // Pinecone: id must be lowercase alphanumeric or '-' (no underscores)
+  const sanitizeId = (s: string) => s.replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "chunk";
   // Pinecone metadata: only string, number, boolean, or string[]. Store text for retrieval.
   const MAX_METADATA_TEXT = 32000; // safe for Pinecone metadata limit
   const toRecord = (c: EmbeddedChunk) => ({
-    id: c.id,
+    id: sanitizeId(c.id),
     values: c.embedding,
     metadata: {
       doc_id: c.metadata.doc_id,
@@ -75,4 +78,55 @@ export async function upsertChunks(embedded: EmbeddedChunk[]): Promise<void> {
     const batch = embedded.slice(i, i + UPSERT_BATCH_SIZE).map(toRecord);
     await index.upsert(batch);
   }
+}
+
+/** Metadata shape returned by query (we store text, doc_id, title, url, etc.). */
+export interface RetrievedMatch {
+  id: string;
+  score?: number;
+  text?: string;
+  doc_id?: string;
+  chunk_index?: number;
+  title?: string;
+  url?: string;
+  source_type?: string;
+  section?: string;
+}
+
+/**
+ * Query the index by vector; returns top K matches with metadata (including text).
+ */
+export async function queryByVector(
+  vector: number[],
+  options: { topK?: number; includeMetadata?: boolean } = {},
+): Promise<RetrievedMatch[]> {
+  const { apiKey, indexName } = getConfigFromEnv();
+  const pc = new Pinecone({ apiKey });
+  const index = pc.index(indexName);
+  const topK = options.topK ?? 5;
+  const includeMetadata = options.includeMetadata !== false;
+
+  const result = await index.query({
+    vector,
+    topK,
+    includeMetadata,
+    includeValues: false,
+  });
+
+  const matches = (result.matches ?? []).map((m) => {
+    const meta = (m.metadata ?? {}) as Record<string, unknown>;
+    return {
+      id: m.id ?? "",
+      score: m.score,
+      text: typeof meta.text === "string" ? meta.text : undefined,
+      doc_id: typeof meta.doc_id === "string" ? meta.doc_id : undefined,
+      chunk_index: typeof meta.chunk_index === "number" ? meta.chunk_index : undefined,
+      title: typeof meta.title === "string" ? meta.title : undefined,
+      url: typeof meta.url === "string" ? meta.url : undefined,
+      source_type: typeof meta.source_type === "string" ? meta.source_type : undefined,
+      section: typeof meta.section === "string" ? meta.section : undefined,
+    };
+  });
+
+  return matches;
 }

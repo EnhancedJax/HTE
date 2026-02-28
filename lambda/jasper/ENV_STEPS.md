@@ -50,7 +50,7 @@
 - **方式 A（建議）**：不手動建 Index，讓 Jasper 第一次執行時依環境變數自動建立。
 - **方式 B（手動建立）**：
   1. Pinecone 主控台 → **Create Index**
-  2. **Name**：`child_online_safety_docs`（或與 `PINECONE_INDEX_NAME` 一致）
+  2. **Name**：`hugging-face-v1`（或與 `PINECONE_INDEX_NAME` 一致）
   3. **Dimension**：**384**（必須與 all-MiniLM-L6-v2 一致）
   4. **Metric**：**cosine**
   5. 若用 Serverless：Cloud 選 **AWS**，Region 選 **us-east-1**（或與 `PINECONE_ENVIRONMENT` 一致）
@@ -60,7 +60,7 @@
 | 變數 | 必填 | 值（本例） |
 |------|------|------------|
 | `PINECONE_API_KEY` | ✅ | 你在 Step 2.2 複製的 API Key |
-| `PINECONE_INDEX_NAME` | 否 | `child_online_safety_docs` |
+| `PINECONE_INDEX_NAME` | 否 | `hugging-face-v1` |
 | `PINECONE_ENVIRONMENT` | 否 | `us-east-1` |
 | `PINECONE_DIM` | 建議 | **384**（與 all-MiniLM-L6-v2 維度一致） |
 
@@ -85,7 +85,7 @@ HF_EMBED_BATCH_SIZE=32
 PINECONE_API_KEY=你的Pinecone_API_Key
 
 # 與 all-MiniLM-L6-v2 維度一致
-PINECONE_INDEX_NAME=child_online_safety_docs
+PINECONE_INDEX_NAME=hugging-face-v1
 PINECONE_ENVIRONMENT=us-east-1
 PINECONE_DIM=384
 ```
