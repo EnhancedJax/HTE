@@ -84,6 +84,7 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
     setFocusNodeId,
     selectedNode,
     setSelectedNode,
+    pipelineMode,
   } = useGraphTreeContext();
   const [diveDeepLoading, setDiveDeepLoading] = useState(false);
   const reactFlow = useReactFlow<Node<TreeNodeData>>();
@@ -213,7 +214,7 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
 
     setDiveDeepLoading(true);
     try {
-      const data = await fetchExpandSubtree(parentId, query);
+      const data = await fetchExpandSubtree(parentId, query, pipelineMode);
       const newFlowNodes = payloadToFlowNodes(data.nodes);
       const newFlowEdges = payloadToFlowEdges(data.edges);
 
@@ -238,6 +239,7 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
     applyLayoutAndColors,
     setFocusNodeId,
     reactFlow,
+    pipelineMode,
   ]);
 
   const onNodeClick: NodeMouseHandler<Node<TreeNodeData>> = useCallback(

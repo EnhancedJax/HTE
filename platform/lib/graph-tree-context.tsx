@@ -3,6 +3,7 @@
 import { useTreeData } from "@/hooks/useTreeData";
 import type { TreeNodeData } from "@/lib/graph-types";
 import { useQuery } from "@/lib/query-context";
+import type { PipelineMode } from "@/lib/query-context";
 import { nodesEdgesToTree } from "@/lib/tree-structure";
 import type { TreeItem } from "@/lib/tree-structure";
 import type { Edge, Node } from "@xyflow/react";
@@ -29,6 +30,8 @@ interface GraphTreeContextValue {
   /** The node the user has currently selected/focused on the graph canvas. */
   selectedNode: Node<TreeNodeData> | null;
   setSelectedNode: React.Dispatch<React.SetStateAction<Node<TreeNodeData> | null>>;
+  /** Current pipeline mode for expand calls. */
+  pipelineMode: PipelineMode;
 }
 
 const GraphTreeContext = createContext<GraphTreeContextValue | null>(null);
@@ -55,21 +58,20 @@ interface GraphTreeProviderProps {
  * can focus the corresponding node in the React Flow graph.
  */
 export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
-  const { query } = useQuery();
+  const { query, pipelineMode } = useQuery();
   const {
     nodes: fetchedNodes,
     edges: fetchedEdges,
     status,
     error,
     refetch,
-  } = useTreeData(query);
+  } = useTreeData(query, pipelineMode);
 
   const [nodes, setNodes] = useState<Node<TreeNodeData>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node<TreeNodeData> | null>(null);
 
-  // Sync fetched data into graph state so sidebar and flow see initial load
   useEffect(() => {
     if (status === "success") {
       setNodes(fetchedNodes);
@@ -96,6 +98,7 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
     setFocusNodeId,
     selectedNode,
     setSelectedNode,
+    pipelineMode,
   };
 
   return (

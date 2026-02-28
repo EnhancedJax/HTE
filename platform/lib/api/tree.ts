@@ -1,14 +1,25 @@
+import type { PipelineMode } from "@/lib/query-context";
 import type { TreeDataResponse, TreeExpandResponse } from "@/lib/schemas/tree";
 
 const TREE_API_PATH = "/api/tree";
+const EDUCATION_API_PATH = "/api/tree/education";
+
+function apiPathForMode(mode: PipelineMode): string {
+  return mode === "education" ? EDUCATION_API_PATH : TREE_API_PATH;
+}
 
 /**
  * Fetches tree data from the server for a knowledge research query.
  * Client responsibility: call this, then apply layout before rendering.
  * @param query — optional user query (high-level topic); server may use a default if omitted.
+ * @param mode  — pipeline mode: "research" (default) or "education" (Gemini-powered).
  */
-export async function fetchTreeData(query?: string): Promise<TreeDataResponse> {
-  const url = new URL(TREE_API_PATH, window.location.origin);
+export async function fetchTreeData(
+  query?: string,
+  mode: PipelineMode = "research",
+): Promise<TreeDataResponse> {
+  const basePath = apiPathForMode(mode);
+  const url = new URL(basePath, window.location.origin);
   if (query?.trim()) url.searchParams.set("q", query.trim());
   const res = await fetch(url.toString(), {
     method: "GET",
@@ -30,8 +41,10 @@ export async function fetchTreeData(query?: string): Promise<TreeDataResponse> {
 export async function fetchExpandSubtree(
   nodeId: string,
   _query?: string,
+  mode: PipelineMode = "research",
 ): Promise<TreeExpandResponse> {
-  const url = new URL(`${TREE_API_PATH}/expand`, window.location.origin);
+  const basePath = apiPathForMode(mode);
+  const url = new URL(`${basePath}/expand`, window.location.origin);
   const res = await fetch(url.toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },

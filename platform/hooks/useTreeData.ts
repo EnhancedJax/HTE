@@ -2,6 +2,7 @@
 
 import { fetchTreeData } from "@/lib/api/tree";
 import type { TreeNodeData } from "@/lib/graph-types";
+import type { PipelineMode } from "@/lib/query-context";
 import type { TreeLayoutOptions } from "@/lib/radial-tree-layout";
 import { horizontalTreeLayout } from "@/lib/radial-tree-layout";
 import {
@@ -34,8 +35,9 @@ export interface UseTreeDataResult {
  * Fetches tree data from the API, maps to React Flow shape, and applies horizontal layout.
  * Server owns data; client owns fetch, mapping, and layout.
  * @param query — optional user search query (high-level topic) for knowledge research.
+ * @param mode — pipeline mode: "research" (default) or "education" (Gemini-powered).
  */
-export function useTreeData(query?: string): UseTreeDataResult {
+export function useTreeData(query?: string, mode: PipelineMode = "research"): UseTreeDataResult {
   const [nodes, setNodes] = useState<Node<TreeNodeData>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [status, setStatus] = useState<TreeDataStatus>("idle");
@@ -45,7 +47,7 @@ export function useTreeData(query?: string): UseTreeDataResult {
     setStatus("loading");
     setError(null);
     try {
-      const data = await fetchTreeData(query);
+      const data = await fetchTreeData(query, mode);
       const flowNodes = payloadToFlowNodes(data.nodes);
       const flowEdges = payloadToFlowEdges(data.edges);
       const layoutedNodes = horizontalTreeLayout(
@@ -60,7 +62,7 @@ export function useTreeData(query?: string): UseTreeDataResult {
       setError(err instanceof Error ? err : new Error(String(err)));
       setStatus("error");
     }
-  }, [query]);
+  }, [query, mode]);
 
   useEffect(() => {
     if (!query) {
