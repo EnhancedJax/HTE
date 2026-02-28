@@ -70,6 +70,24 @@ function isAtLeastAsComplete(
   return true;
 }
 
+function buildExpandFingerprint(data: TreeExpandResponse): string {
+  const nodePart = data.nodes
+    .map((node) =>
+      [
+        node.id,
+        node.data.label,
+        node.data.level,
+        node.data.summary ?? node.data.description ?? "",
+        Array.isArray(node.data.keywords) ? node.data.keywords.join(",") : "",
+      ].join("|"),
+    )
+    .join(";");
+  const edgePart = data.edges
+    .map((edge) => `${edge.id}|${edge.source}|${edge.target}`)
+    .join(";");
+  return `${nodePart}::${edgePart}`;
+}
+
 function normalizeTreePayload(raw: unknown, query: string): TreeDataResponse | null {
   const obj = asRecord(raw);
   if (!obj) return null;
@@ -372,6 +390,7 @@ export async function streamEducationExpandSubtree(
   const decoder = new TextDecoder();
   let buffer = "";
   let latest: TreeExpandResponse | null = null;
+  let latestFingerprint = "";
 
   while (true) {
     const { value, done } = await reader.read();
@@ -383,7 +402,10 @@ export async function streamEducationExpandSubtree(
     const normalized = normalizeExpandPayload(parsed, nodeId);
     if (!normalized || normalized.nodes.length === 0) continue;
     if (!isAtLeastAsComplete(normalized, latest)) continue;
+    const fingerprint = buildExpandFingerprint(normalized);
+    if (fingerprint === latestFingerprint) continue;
     latest = normalized;
+    latestFingerprint = fingerprint;
     onPartial(normalized);
   }
 
@@ -395,8 +417,12 @@ export async function streamEducationExpandSubtree(
     normalized.nodes.length > 0 &&
     isAtLeastAsComplete(normalized, latest)
   ) {
+    const fingerprint = buildExpandFingerprint(normalized);
+    if (fingerprint !== latestFingerprint) {
+      latestFingerprint = fingerprint;
+      onPartial(normalized);
+    }
     latest = normalized;
-    onPartial(normalized);
   }
 
   if (!latest) {

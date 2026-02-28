@@ -39,6 +39,39 @@ const nodeTypes = { treeNode: TreeNode };
 const edgeTypes = { treeEdge: TreeEdge };
 const DIVE_DEEP_SKELETON_COUNT = 3;
 
+function buildEdgesSignature(edges: {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+}[]): string {
+  return edges
+    .map(
+      (edge) =>
+        `${edge.id}|${edge.source}|${edge.target}|${edge.type ?? "treeEdge"}`,
+    )
+    .join(";");
+}
+
+function buildNodesSignature(nodes: Node<TreeNodeData>[]): string {
+  return nodes
+    .map((node) => {
+      const metadata = node.data?.metadata ?? {};
+      return [
+        node.id,
+        node.selected ? "1" : "0",
+        node.position.x,
+        node.position.y,
+        node.data?.label ?? "",
+        node.data?.level ?? "",
+        node.data?.summary ?? node.data?.description ?? "",
+        String(metadata.parent ?? ""),
+        String(metadata.skeleton ?? ""),
+      ].join("|");
+    })
+    .join(";");
+}
+
 /** Right padding (px) for fitView when NodeCard is visible so the focused node stays clear of the card. */
 const NODE_CARD_FIT_PADDING_RIGHT = 336; // w-80 (320px) + right-3 (12px) + buffer
 
@@ -118,12 +151,19 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
   const applySelectionToNodes = useCallback(
     (nodeIds: string[]) => {
       const selectedIds = new Set(nodeIds);
-      setNodes((currentNodes) =>
-        currentNodes.map((node) => ({
+      setNodes((currentNodes) => {
+        const hasSelectionDiff = currentNodes.some(
+          (node) => node.selected !== selectedIds.has(node.id),
+        );
+        if (!hasSelectionDiff) {
+          return currentNodes;
+        }
+
+        return currentNodes.map((node) => ({
           ...node,
           selected: selectedIds.has(node.id),
-        })),
-      );
+        }));
+      });
     },
     [setNodes],
   );
@@ -141,6 +181,18 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
         ...node,
         selected: selectedIds.has(node.id),
       }));
+      const nextEdgesSignature = buildEdgesSignature(nextEdges);
+      const nextNodesSignature = buildNodesSignature(coloredSelectedNodes);
+      const currentEdgesSignature = buildEdgesSignature(graphStateRef.current.edges);
+      const currentNodesSignature = buildNodesSignature(graphStateRef.current.nodes);
+
+      if (
+        nextEdgesSignature === currentEdgesSignature &&
+        nextNodesSignature === currentNodesSignature
+      ) {
+        return;
+      }
+
       graphStateRef.current = { nodes: coloredSelectedNodes, edges: nextEdges };
       setEdges(nextEdges);
       setNodes(coloredSelectedNodes);
@@ -158,8 +210,13 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
     if (!node) {
       return;
     }
-    setSelectedNode(node);
-    setSelectedNodeIds([node.id]);
+    setSelectedNode((current) => (current?.id === node.id ? current : node));
+    setSelectedNodeIds((current) => {
+      if (current.length === 1 && current[0] === node.id) {
+        return current;
+      }
+      return [node.id];
+    });
     applySelectionToNodes([node.id]);
     const focusView = () => {
       if (reactFlow.viewportInitialized) {

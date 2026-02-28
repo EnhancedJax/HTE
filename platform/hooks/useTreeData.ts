@@ -30,6 +30,33 @@ export const LAYOUT_OPTIONS: TreeLayoutOptions = {
 };
 const ROOT_SKELETON_COUNT = 3;
 
+function buildEdgeSignature(edges: Edge[]): string {
+  return edges
+    .map(
+      (edge) =>
+        `${edge.id}|${edge.source}|${edge.target}|${edge.type ?? "treeEdge"}`,
+    )
+    .join(";");
+}
+
+function buildNodeSignature(nodes: Node<TreeNodeData>[]): string {
+  return nodes
+    .map((node) => {
+      const metadata = node.data?.metadata ?? {};
+      return [
+        node.id,
+        node.position.x,
+        node.position.y,
+        node.data?.label ?? "",
+        node.data?.level ?? "",
+        node.data?.summary ?? node.data?.description ?? "",
+        String(metadata.parent ?? ""),
+        String(metadata.skeleton ?? ""),
+      ].join("|");
+    })
+    .join(";");
+}
+
 export type TreeDataStatus = "idle" | "loading" | "success" | "error";
 
 export interface UseTreeDataResult {
@@ -55,6 +82,7 @@ export function useTreeData(
   const [status, setStatus] = useState<TreeDataStatus>("idle");
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const publishedGraphSignatureRef = useRef<string>("");
 
   const load = useCallback(async () => {
     abortRef.current?.abort();
@@ -72,7 +100,17 @@ export function useTreeData(
           flowEdges,
           LAYOUT_OPTIONS,
         );
-        setNodes(enrichNodesWithBranchColors(layoutedNodes, flowEdges));
+        const coloredNodes = enrichNodesWithBranchColors(layoutedNodes, flowEdges);
+        const nextSignature = [
+          buildNodeSignature(coloredNodes),
+          buildEdgeSignature(flowEdges),
+        ].join("::");
+        if (nextSignature === publishedGraphSignatureRef.current) {
+          setStatus("success");
+          return;
+        }
+        publishedGraphSignatureRef.current = nextSignature;
+        setNodes(coloredNodes);
         setEdges(flowEdges);
         setStatus("success");
       };
@@ -178,6 +216,7 @@ export function useTreeData(
   useEffect(() => {
     if (!query) {
       abortRef.current?.abort();
+      publishedGraphSignatureRef.current = "";
       setStatus("idle");
       setNodes([]);
       setEdges([]);

@@ -93,9 +93,10 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
   useEffect(() => {
     const nodeIds = new Set(nodes.map((node) => node.id));
 
-    setSelectedNodeIds((current) =>
-      current.filter((nodeId) => nodeIds.has(nodeId)),
-    );
+    setSelectedNodeIds((current) => {
+      const next = current.filter((nodeId) => nodeIds.has(nodeId));
+      return next.length === current.length ? current : next;
+    });
 
     setSelectedNode((current) => {
       if (!current) return null;
