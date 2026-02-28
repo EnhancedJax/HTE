@@ -1,3 +1,5 @@
+import queryDeepSeek from "@/app/webscrapingPortal/deepseekPortal";
+import queryMiniMax from "@/app/webscrapingPortal/minimaxPortal";
 import type {
   TreeDataResponse,
   TreeEdgePayload,
@@ -5,7 +7,6 @@ import type {
   TreeLevel,
   TreeNodePayload,
 } from "@/lib/schemas/tree";
-import queryMiniMax from "@/app/webscrapingPortal/minimaxPortal";
 
 function extractJsonObject(text: string): unknown {
   const start = text.indexOf("{");
@@ -64,7 +65,11 @@ function normalizeTreeDataResponse(
         return {
           id,
           type: asString(n.type) ?? "treeNode",
-          data: { ...(data as unknown as TreeNodePayload["data"]), label, level: level as TreeLevel },
+          data: {
+            ...(data as unknown as TreeNodePayload["data"]),
+            label,
+            level: level as TreeLevel,
+          },
         };
       })
       .filter(Boolean) as TreeNodePayload[],
@@ -95,11 +100,16 @@ function normalizeTreeDataResponse(
     for (const n2 of level2) {
       inferred.push({ id: `root--${n2.id}`, source: "root", target: n2.id });
     }
-    const chunkSize = level2.length > 0 ? Math.ceil(level3.length / level2.length) : 0;
+    const chunkSize =
+      level2.length > 0 ? Math.ceil(level3.length / level2.length) : 0;
     level3.forEach((n3, i) => {
       const parent = level2[Math.floor(i / chunkSize)];
       if (parent) {
-        inferred.push({ id: `${parent.id}--${n3.id}`, source: parent.id, target: n3.id });
+        inferred.push({
+          id: `${parent.id}--${n3.id}`,
+          source: parent.id,
+          target: n3.id,
+        });
       }
     });
     safeEdges = inferred;
@@ -161,7 +171,11 @@ function normalizeTreeExpandResponse(raw: unknown): TreeExpandResponse {
         return {
           id,
           type: asString(n.type) ?? "treeNode",
-          data: { ...(data as unknown as TreeNodePayload["data"]), label, level: level as TreeLevel },
+          data: {
+            ...(data as unknown as TreeNodePayload["data"]),
+            label,
+            level: level as TreeLevel,
+          },
         };
       })
       .filter(Boolean) as TreeNodePayload[],
@@ -192,49 +206,44 @@ export interface GenerateTreeOptions {
   context?: string;
 }
 
+/** Trim context to avoid sending massive payloads to the LLM. */
+function trimContext(context: string, maxChars = 4000): string {
+  if (context.length <= maxChars) return context;
+  return context.slice(0, maxChars) + "\n[...truncated for brevity]";
+}
+
+const TREE_SYSTEM_PROMPT = [
+  "You are a JSON generator. Output ONLY a single valid JSON object — no markdown, no code fences, no explanation.",
+  "",
+  "Schema:",
+  '{ "rootSummary": string, "nodes": [{ "id": string, "type": "treeNode", "data": { "label": string, "level": 1|2|3, "summary": string } }], "edges": [{ "id": string, "source": string, "target": string }] }',
+  "",
+  "Rules:",
+  '- Root node: id="root", level=1, label=the query.',
+  "- Exactly 3 level-2 nodes.",
+  "- Exactly 2 level-3 nodes per level-2 node (6 total).",
+  "- summary: 1 sentence max.",
+  "- IDs: URL-safe (letters/numbers/dashes only).",
+  '- Edge ids: "<source>--<target>".',
+  "- 3 root→level-2 edges + 6 level-2→level-3 edges. Edges array must NOT be empty.",
+].join("\n");
+
 export async function generateTreeDataWithLangChain(
   opts: GenerateTreeOptions,
 ): Promise<TreeDataResponse> {
   const query = opts.query.trim() || "Untitled Topic";
 
   const contextSection = opts.context
-    ? [
-        "Research context (retrieved via RAG — use this to ground the tree):",
-        opts.context,
-        "",
-      ].join("\n")
+    ? `Research context (ground the tree with this):\n${trimContext(opts.context)}\n\n`
     : "";
 
-  const prompt = [
-    "You generate a 3-level knowledge tree for a research UI.",
-    "Return ONLY valid JSON (no markdown, no code fences, no commentary).",
-    "",
-    contextSection,
-    "Node constraints:",
-    '- Root node: id="root", type="treeNode", data.level=1, data.label=the query string.',
-    "- Exactly 3 level-2 nodes (data.level=2).",
-    "- Exactly 2 level-3 nodes per level-2 node (6 total, data.level=3).",
-    "- Each node data must include: label (string), level (1|2|3), summary (1-2 sentences).",
-    "- IDs must be unique, URL-safe (letters/numbers/dashes only).",
-    "",
-    "Edge constraints — THIS IS REQUIRED:",
-    "- The edges array MUST NOT be empty.",
-    "- Create one edge from root to each level-2 node (3 edges).",
-    "- Create one edge from each level-2 node to each of its level-3 children (6 edges).",
-    "- Every edge must have: id (string), source (parent node id), target (child node id).",
-    '- Edge id format: "<source>--<target>"',
-    "",
-    "Example edges for a tree with root → node-a → node-a-1:",
-    '  { "id": "root--node-a", "source": "root", "target": "node-a" }',
-    '  { "id": "node-a--node-a-1", "source": "node-a", "target": "node-a-1" }',
-    "",
-    "Output shape:",
-    '{ "rootSummary": string, "nodes": Array<{ id, type, data: { label, level, summary } }>, "edges": Array<{ id, source, target }> }',
-    "",
-    `Query: ${JSON.stringify(query)}`,
-  ].join("\n");
+  const userMessage = `${contextSection}Query: ${JSON.stringify(query)}`;
 
-  const content = await queryMiniMax(prompt);
+  const content = await queryDeepSeek(userMessage, {
+    system: TREE_SYSTEM_PROMPT,
+    temperature: 0,
+    max_tokens: 1200,
+  });
   const parsed = extractJsonObject(content);
   return normalizeTreeDataResponse(query, parsed);
 }
@@ -284,4 +293,3 @@ export async function generateExpandSubtreeWithLangChain(
   const parsed = extractJsonObject(content);
   return normalizeTreeExpandResponse(parsed);
 }
-
