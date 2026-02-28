@@ -1,28 +1,39 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useGraphTreeContext } from "@/lib/graph-tree-context";
 import { useQuery } from "@/lib/query-context";
 import type { TreeItem } from "@/lib/tree-structure";
 import { cn } from "@/lib/utils";
-import { DefaultChatTransport } from "ai";
+import { useChat } from "@ai-sdk/react";
 import {
   ChatCircleTextIcon,
   PaperPlaneRightIcon,
   TreeStructureIcon,
-  UserCircleIcon,
 } from "@phosphor-icons/react";
 import {
   CircleIcon,
   LightbulbIcon,
   LinuxLogoIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import { DefaultChatTransport } from "ai";
 import { AnimatePresence, motion } from "motion/react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-const SIDEBAR_WIDTH = 260;
+/** Converts the tree structure to a compact indented text for the AI. */
+function serializeTree(item: TreeItem, depth = 0): string {
+  const indent = "  ".repeat(depth);
+  const lines = [`${indent}- ${item.label}`];
+  if (item.children) {
+    for (const child of item.children) {
+      lines.push(serializeTree(child, depth + 1));
+    }
+  }
+  return lines.join("\n");
+}
+
+const SIDEBAR_WIDTH = 312;
 
 /** Indentation in px per depth level so deeper layers stay compact. */
 const INDENT_PER_LEVEL = 1;
@@ -39,6 +50,40 @@ interface SidebarTreeItemProps {
 }
 
 type SidebarView = "tree" | "chat";
+
+function extractAssistantContent(text: string) {
+  const thinkStartTag = "<think>";
+  const thinkEndTag = "</think>";
+  const startIndex = text.indexOf(thinkStartTag);
+
+  if (startIndex === -1) {
+    return {
+      visibleText: text,
+      thinkingText: "",
+      isThinking: false,
+    };
+  }
+
+  const afterThinkStart = text.slice(startIndex + thinkStartTag.length);
+  const endIndex = afterThinkStart.indexOf(thinkEndTag);
+
+  if (endIndex === -1) {
+    return {
+      visibleText: text.slice(0, startIndex).trim(),
+      thinkingText: afterThinkStart,
+      isThinking: true,
+    };
+  }
+
+  return {
+    visibleText: (
+      text.slice(0, startIndex) +
+      afterThinkStart.slice(endIndex + thinkEndTag.length)
+    ).trim(),
+    thinkingText: "",
+    isThinking: false,
+  };
+}
 
 function SidebarTreeItem({ item, depth, onSelectNode }: SidebarTreeItemProps) {
   const hasChildren = item.children && item.children.length > 0;
@@ -94,14 +139,37 @@ function SidebarTreeItem({ item, depth, onSelectNode }: SidebarTreeItemProps) {
 
 export function Sidebar({ open, className }: SidebarProps) {
   const { query } = useQuery();
-  const { treeRoot, status, setFocusNodeId } = useGraphTreeContext();
+  const { treeRoot, status, setFocusNodeId, selectedNode } = useGraphTreeContext();
   const [activeView, setActiveView] = useState<SidebarView>("tree");
   const [chatInput, setChatInput] = useState("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  const { messages, sendMessage, status: chatStatus } = useChat({
+  // Mutable body object so context stays fresh on every request without
+  // reinitialising the transport (DefaultChatTransport reads properties at
+  // send-time via object spread, so mutating the same reference works).
+  const chatBodyRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    chatBodyRef.current.treeContextText = treeRoot
+      ? serializeTree(treeRoot)
+      : "";
+    chatBodyRef.current.selectedNodeLabel = selectedNode?.data?.label
+      ? String(selectedNode.data.label)
+      : "";
+    chatBodyRef.current.selectedNodeSummary =
+      selectedNode?.data?.summary || selectedNode?.data?.description
+        ? String(selectedNode.data.summary ?? selectedNode.data.description ?? "")
+        : "";
+    chatBodyRef.current.topicQuery = query ?? "";
+  }, [treeRoot, selectedNode, query]);
+
+  const {
+    messages,
+    sendMessage,
+    status: chatStatus,
+  } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
+      body: chatBodyRef.current,
     }),
   });
 
@@ -111,6 +179,17 @@ export function Sidebar({ open, className }: SidebarProps) {
       behavior: "smooth",
     });
   }, [messages, chatStatus]);
+
+  const latestAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  const assistantHasStarted =
+    latestAssistantMessage?.parts.some(
+      (part) => part.type === "text" && part.text.trim().length > 0,
+    ) ?? false;
+  const showPendingAssistant =
+    chatStatus === "submitted" ||
+    (chatStatus === "streaming" && !assistantHasStarted);
 
   const handleSendChatMessage = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -132,7 +211,10 @@ export function Sidebar({ open, className }: SidebarProps) {
         className,
       )}
     >
-      <div className="flex h-full w-[260px] min-w-[260px] shrink-0 flex-col">
+      <div
+        className="flex h-full shrink-0 flex-col"
+        style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH }}
+      >
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-sidebar-border px-3">
           <TreeStructureIcon className="size-5 shrink-0 text-sidebar-foreground" />
           <span className="flex flex-row items-baseline gap-2">
@@ -168,7 +250,7 @@ export function Sidebar({ open, className }: SidebarProps) {
             </Button>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2">
+        <div className="minimal-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2">
           <AnimatePresence mode="wait">
             {open && (
               <motion.div
@@ -205,7 +287,7 @@ export function Sidebar({ open, className }: SidebarProps) {
                   <div className="flex h-full min-h-0 flex-col">
                     <div
                       ref={messagesContainerRef}
-                      className="min-h-0 flex-1 space-y-2 overflow-y-auto px-1 py-1"
+                      className="minimal-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto px-1 py-1"
                     >
                       {messages.length === 0 ? (
                         <p className="px-2 py-3 text-xs text-sidebar-foreground/60">
@@ -213,28 +295,48 @@ export function Sidebar({ open, className }: SidebarProps) {
                           in real time.
                         </p>
                       ) : (
-                        messages.map((message) => (
-                          <div
-                            key={message.id}
-                            className={cn(
-                              "rounded-xl px-3 py-2 text-sm",
-                              message.role === "user"
-                                ? "ml-8 bg-primary text-primary-foreground"
-                                : "mr-8 bg-sidebar-accent text-sidebar-foreground",
-                            )}
-                          >
-                            {message.parts.map((part, index) =>
-                              part.type === "text" ? (
-                                <p
-                                  key={`${message.id}-${index}`}
-                                  className="whitespace-pre-wrap"
+                        messages.map((message) => {
+                          const plainText = message.parts
+                            .filter((part) => part.type === "text")
+                            .map((part) => part.text)
+                            .join("");
+
+                          const { visibleText, thinkingText, isThinking } =
+                            extractAssistantContent(plainText);
+
+                          return (
+                            <div key={message.id} className="space-y-1.5">
+                              {message.role === "assistant" &&
+                                isThinking &&
+                                thinkingText && (
+                                  <p className="mr-8 px-1 text-xs whitespace-pre-wrap text-sidebar-foreground/60">
+                                    {thinkingText}
+                                  </p>
+                                )}
+                              {visibleText && (
+                                <div
+                                  className={cn(
+                                    "rounded-xl px-3 py-2 text-sm",
+                                    message.role === "user"
+                                      ? "ml-8 bg-primary text-primary-foreground"
+                                      : "mr-8 bg-sidebar-accent text-sidebar-foreground",
+                                  )}
                                 >
-                                  {part.text}
-                                </p>
-                              ) : null,
-                            )}
-                          </div>
-                        ))
+                                  <p className="whitespace-pre-wrap">
+                                    {visibleText}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                      {showPendingAssistant && (
+                        <div className="mr-8 rounded-xl bg-sidebar-accent px-3 py-2 text-sm text-sidebar-foreground">
+                          <p className="skeleton-shimmer rounded-md px-1 py-0.5 text-sidebar-foreground/70">
+                            Thinking...
+                          </p>
+                        </div>
                       )}
                     </div>
                     <form
@@ -250,41 +352,20 @@ export function Sidebar({ open, className }: SidebarProps) {
                       <Button
                         type="submit"
                         size="icon-sm"
-                        disabled={!chatInput.trim() || chatStatus === "streaming"}
+                        disabled={
+                          !chatInput.trim() || chatStatus === "streaming"
+                        }
                         aria-label="Send message"
                       >
                         <PaperPlaneRightIcon className="size-4" weight="fill" />
                       </Button>
                     </form>
-                    {chatStatus === "streaming" && (
-                      <p className="px-1 pt-1 text-xs text-sidebar-foreground/60">
-                        AI is typing...
-                      </p>
-                    )}
                   </div>
                 )}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-        {open && (
-          <div className="shrink-0 border-t border-sidebar-border px-3 py-3">
-            <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 px-2 py-2">
-              <UserCircleIcon
-                className="size-9 shrink-0 text-sidebar-foreground/80"
-                weight="duotone"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-sidebar-foreground">
-                  Alex Chen
-                </p>
-                <p className="truncate text-xs text-sidebar-foreground/70">
-                  alex@example.com
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </motion.aside>
   );

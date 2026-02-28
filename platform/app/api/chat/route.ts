@@ -24,12 +24,51 @@ export async function POST(request: Request) {
     );
   }
 
-  const { messages }: { messages: UIMessage[] } = await request.json();
+  const {
+    messages,
+    treeContextText,
+    selectedNodeLabel,
+    selectedNodeSummary,
+    topicQuery,
+  }: {
+    messages: UIMessage[];
+    treeContextText?: string;
+    selectedNodeLabel?: string;
+    selectedNodeSummary?: string;
+    topicQuery?: string;
+  } = await request.json();
+
+  const contextParts: string[] = [];
+
+  if (topicQuery) {
+    contextParts.push(`The user is exploring the topic: "${topicQuery}".`);
+  }
+
+  if (treeContextText) {
+    contextParts.push(
+      `The current knowledge tree structure is:\n${treeContextText}`,
+    );
+  }
+
+  if (selectedNodeLabel) {
+    const nodeDesc = selectedNodeSummary
+      ? `"${selectedNodeLabel}" — ${selectedNodeSummary}`
+      : `"${selectedNodeLabel}"`;
+    contextParts.push(
+      `The user is currently viewing the node: ${nodeDesc}`,
+    );
+  }
+
+  const contextBlock =
+    contextParts.length > 0
+      ? `\n\n--- CURRENT CONTEXT ---\n${contextParts.join("\n\n")}\n--- END CONTEXT ---`
+      : "";
+
+  const system = `You are a concise and practical assistant for a knowledge tree explorer app. Answer questions about the topic, its sub-topics, and the node the user is viewing. Be specific when context is provided.${contextBlock}`;
 
   const result = streamText({
     model: minimax("MiniMax-M2.5"),
-    system:
-      "You are a concise and practical assistant for a knowledge tree explorer app. Do not include <think> tags in your answer.",
+    system,
     messages: await convertToModelMessages(messages),
   });
 

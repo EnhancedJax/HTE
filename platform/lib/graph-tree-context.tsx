@@ -26,6 +26,9 @@ interface GraphTreeContextValue {
   treeRoot: TreeItem | null;
   focusNodeId: string | null;
   setFocusNodeId: (id: string | null) => void;
+  /** The node the user has currently selected/focused on the graph canvas. */
+  selectedNode: Node<TreeNodeData> | null;
+  setSelectedNode: React.Dispatch<React.SetStateAction<Node<TreeNodeData> | null>>;
 }
 
 const GraphTreeContext = createContext<GraphTreeContextValue | null>(null);
@@ -64,6 +67,7 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
   const [nodes, setNodes] = useState<Node<TreeNodeData>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node<TreeNodeData> | null>(null);
 
   // Sync fetched data into graph state so sidebar and flow see initial load
   useEffect(() => {
@@ -73,6 +77,7 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
     } else if (!query) {
       setNodes([]);
       setEdges([]);
+      setSelectedNode(null);
     }
   }, [status, fetchedNodes, fetchedEdges, query]);
 
@@ -89,6 +94,8 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
     treeRoot,
     focusNodeId,
     setFocusNodeId,
+    selectedNode,
+    setSelectedNode,
   };
 
   return (

@@ -75,11 +75,16 @@ interface GraphTreeFlowProps {
 }
 
 function GraphTreeFlow({ query }: GraphTreeFlowProps) {
-  const { nodes, edges, setNodes, setEdges, focusNodeId, setFocusNodeId } =
-    useGraphTreeContext();
-  const [selectedNode, setSelectedNode] = useState<Node<TreeNodeData> | null>(
-    null,
-  );
+  const {
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    focusNodeId,
+    setFocusNodeId,
+    selectedNode,
+    setSelectedNode,
+  } = useGraphTreeContext();
   const [diveDeepLoading, setDiveDeepLoading] = useState(false);
   const reactFlow = useReactFlow<Node<TreeNodeData>>();
 
