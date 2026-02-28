@@ -110,6 +110,19 @@ interface GraphTreeFlowProps {
   query?: string;
 }
 
+function isPlaceholderTreeNode(node: Node<TreeNodeData>): boolean {
+  const metadata =
+    node.data?.metadata && typeof node.data.metadata === "object"
+      ? (node.data.metadata as Record<string, unknown>)
+      : null;
+
+  return (
+    metadata?.skeleton === "true" ||
+    metadata?.placeholder === "true" ||
+    node.data?.label === "Generating..."
+  );
+}
+
 function GraphTreeFlow({ query }: GraphTreeFlowProps) {
   const {
     nodes,
@@ -441,6 +454,7 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
       const shouldAutoDiveDeep =
         pipelineMode === "education" &&
         Number(node.data?.level ?? 1) >= 2 &&
+        !isPlaceholderTreeNode(node) &&
         !edges.some((edge) => edge.source === node.id) &&
         !diveDeepLoadingRef.current;
 

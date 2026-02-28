@@ -116,13 +116,13 @@ export default function Page() {
 
         <motion.div
           layout
-          className="flex flex-col items-center gap-2 w-full max-w-2xl"
+          className="flex flex-col items-center gap-0 w-full max-w-2xl"
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
           {/* Pipeline mode toggle */}
           <motion.div
             layout
-            className="inline-flex items-center rounded-full bg-muted p-0.5 border border-border"
+            className="inline-flex items-center rounded-t-xl bg-muted p-0.5 border border-border"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             {MODES.map((m) => {
@@ -136,7 +136,7 @@ export default function Page() {
                     if (!hasQuery) setPipelineMode(m.value);
                   }}
                   disabled={hasQuery}
-                  className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 ${
+                  className={`relative flex items-center gap-1.5 rounded-t-xl px-3.5 py-1.5 text-xs font-medium transition-all duration-200 ${
                     isActive
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
