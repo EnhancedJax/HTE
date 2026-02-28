@@ -9,14 +9,18 @@ interface NodeCardProps {
 }
 
 export function NodeCard({ nodeId, data, onClose }: NodeCardProps) {
+  const summary = data.summary ?? data.description;
+  const images = data.images ?? [];
+  const relatedLinks = data.relatedLinks ?? [];
+
   return (
     <div className="h-full flex flex-col bg-card text-card-foreground border-l border-border shadow-xl">
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Node details</h2>
+      <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+        <h2 className="text-lg font-semibold truncate pr-2">{data.label}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
           aria-label="Close"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -25,35 +29,52 @@ export function NodeCard({ nodeId, data, onClose }: NodeCardProps) {
         </button>
       </div>
       <div className="p-4 flex-1 overflow-auto space-y-4">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ID</p>
-          <p className="mt-1 font-mono text-sm break-all">{nodeId}</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Label</p>
-          <p className="mt-1 font-medium">{data.label}</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Level</p>
-          <p className="mt-1">Level {data.level}</p>
-        </div>
-        {data.description && (
+        {summary && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</p>
-            <p className="mt-1 text-sm text-muted-foreground">{data.description}</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Summary</p>
+            <p className="text-sm text-foreground/90 leading-relaxed">{summary}</p>
           </div>
         )}
-        {data.metadata && Object.keys(data.metadata).length > 0 && (
+        {images.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Metadata</p>
-            <dl className="mt-1 space-y-1">
-              {Object.entries(data.metadata).map(([key, value]) => (
-                <div key={key} className="flex gap-2 text-sm">
-                  <dt className="text-muted-foreground">{key}:</dt>
-                  <dd className="font-mono">{value}</dd>
-                </div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Images</p>
+            <div className="flex flex-col gap-2">
+              {images.map((src, i) => (
+                <a
+                  key={i}
+                  href={src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-lg overflow-hidden border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt={`Topic image ${i + 1}`}
+                    className="w-full h-32 object-cover"
+                  />
+                </a>
               ))}
-            </dl>
+            </div>
+          </div>
+        )}
+        {relatedLinks.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Related links</p>
+            <ul className="space-y-1.5">
+              {relatedLinks.map((link, i) => (
+                <li key={i}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline break-all"
+                  >
+                    {link.title || link.url}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

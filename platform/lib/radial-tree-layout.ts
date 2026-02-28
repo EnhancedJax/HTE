@@ -1,6 +1,7 @@
-import * as d3 from "d3-hierarchy";
-import type { HierarchyNode } from "d3-hierarchy";
+import { TreeLayoutOptions } from "@/hooks/useTreeData";
 import type { Edge, Node } from "@xyflow/react";
+import type { HierarchyNode } from "d3-hierarchy";
+import * as d3 from "d3-hierarchy";
 
 interface TreeStub {
   id: string;
@@ -30,8 +31,7 @@ function buildTreeFromEdges(edges: Edge[], rootId: string): TreeStub {
     const childIds = childrenByParent.get(id) ?? [];
     return {
       id,
-      children:
-        childIds.length > 0 ? childIds.map(makeStub) : undefined,
+      children: childIds.length > 0 ? childIds.map(makeStub) : undefined,
     };
   }
 
@@ -45,14 +45,7 @@ function buildTreeFromEdges(edges: Edge[], rootId: string): TreeStub {
 export function radialTreeLayout<N extends Record<string, unknown>>(
   nodes: Node<N>[],
   edges: Edge[],
-  options: {
-    rootId: string;
-    centerX?: number;
-    centerY?: number;
-    radiusStep?: number;
-    nodeWidth?: number;
-    nodeHeight?: number;
-  },
+  options: TreeLayoutOptions,
 ): Node<N>[] {
   const {
     rootId,

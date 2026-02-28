@@ -23,9 +23,13 @@ import { TreeNode } from "./TreeNode";
 const nodeTypes = { treeNode: TreeNode };
 const edgeTypes = { centerToCenter: CenterToCenterEdge };
 
-function GraphTreeInner() {
+interface GraphTreeInnerProps {
+  query?: string;
+}
+
+function GraphTreeInner({ query }: GraphTreeInnerProps) {
   const { nodes: fetchedNodes, edges: fetchedEdges, status, error, refetch } =
-    useTreeData();
+    useTreeData(query);
 
   if (status === "loading" || status === "idle") {
     return (
@@ -127,10 +131,15 @@ function GraphTreeFlow({ initialNodes, initialEdges }: GraphTreeFlowProps) {
   );
 }
 
-export function GraphTree() {
+interface GraphTreeProps {
+  /** User's search query (high-level topic). Omit for default topic. */
+  query?: string;
+}
+
+export function GraphTree({ query }: GraphTreeProps) {
   return (
     <ReactFlowProvider>
-      <GraphTreeInner />
+      <GraphTreeInner query={query} />
     </ReactFlowProvider>
   );
 }

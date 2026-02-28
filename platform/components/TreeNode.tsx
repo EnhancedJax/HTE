@@ -45,7 +45,6 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
         className="left-1/2! top-1/2! -translate-x-1/2! -translate-y-1/2! w-0! h-0! min-w-0! min-h-0! border-0! opacity-0! pointer-events-none!"
       />
       <span className="text-sm">{label}</span>
-      <span className="ml-1.5 text-xs opacity-80">L{level}</span>
     </div>
   );
 }
