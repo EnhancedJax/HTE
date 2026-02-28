@@ -32,6 +32,21 @@ JavaScript/TypeScript Lambda: **chunk** raw docs → **embed** with MiniMax → 
 }
 ```
 
+## Crawler 資料格式（給爬蟲隊友）
+
+**請給負責爬資料的隊友看：[CRAWLER_CONTRACT.md](./CRAWLER_CONTRACT.md)**  
+裡面寫明每筆文件必須有 `doc_id`、`text`，以及可選的 `title`、`url`、`source_type`。格式一致才能正確 chunk 並寫入 Pinecone。
+
+## 驗證與 E2E 測試
+
+- **只驗證格式**（不需 API key）：  
+  `npm run validate:crawler -- ./raw_documents`  
+  或指定單一 JSON 檔／目錄。
+- **完整流程**（chunk → MiniMax embed → Pinecone upsert）：  
+  請先在 `lambda/jasper/.env` 填好 `MINIMAX_API_KEY`、`MINIMAX_GROUP_ID`、`PINECONE_API_KEY` 等（可從 `.env.example` 複製再填），然後執行：  
+  `npm run test:e2e -- ./raw_documents`  
+  預設會讀取 `raw_documents/` 內所有 `.json`；可改傳其他目錄路徑。
+
 ## Environment variables (Lambda console or `.env`)
 
 | Variable | Required | Description |

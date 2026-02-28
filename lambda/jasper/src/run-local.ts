@@ -1,11 +1,17 @@
 /**
  * Run ingestion locally: load raw_documents/*.json or read event from stdin.
+ * Loads lambda/jasper/.env so MINIMAX_* and PINECONE_* are set.
  * Usage:
  *   npx tsx src/run-local.ts [path/to/raw_documents]
  *   echo '{"documents":[...]}' | npx tsx src/run-local.ts
  */
+import { config } from "dotenv";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { readFile, readdir } from "fs/promises";
-import { join } from "path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: join(__dirname, "..", ".env") });
 import { handler } from "./handler.js";
 import type { RawDocument } from "./types.js";
 

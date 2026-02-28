@@ -1,0 +1,7 @@
+{
+  "doc_id": "crawler-test-001",
+  "title": "Sample: Child Online Safety Guide",
+  "url": "https://example.com/child-safety",
+  "text": "This is sample cleaned text that your crawler teammate should produce. It must be plain text only; no HTML. Jasper will chunk this into segments of roughly 500–800 tokens with about 10–20% overlap. You can put multiple paragraphs here. The important fields are doc_id (required) and text (required). Title and url are optional but will be stored in Pinecone metadata for each chunk. Source_type defaults to 'web' if omitted. If the crawler sends data in this exact shape, chunking and embedding will work correctly.",
+  "source_type": "web"
+}
