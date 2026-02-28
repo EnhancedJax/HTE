@@ -1,10 +1,26 @@
-# 給 Crawler 隊友：送給 Jasper 的資料格式（必遵從）
+# 給 Crawler 隊友：送給 Jasper 的資料格式
 
-負責爬資料的隊友請依以下格式產出，Jasper（chunk → embed → Pinecone）才能正確吃入。
+Jasper 支援兩種輸入格式，**任一種**都可以直接使用。
 
 ---
 
-## 你要送出的格式
+## 格式一：Platform 現有格式（userQueryProcess.tsx / Exa 結果）
+
+你現在在 `platform/app/webscrapingPortal/userQueryProcess.tsx` 產出的結構，Jasper **已支援**，不需改欄位名稱：
+
+- 外層：`"User Query"`（可選）、`"Relevant Topics"`（陣列）、`"Results"`（必填）
+- `Results`：`Results[Topic][Question]` = **陣列**，每個元素為 `{ url?, title?, highlight?, image? }`
+- Jasper 會把每個元素轉成一份文件：`text` = `highlight`（或 `title`），`url`、`title` 進 metadata
+
+若某處是**單一物件** `{ Source, Title, Content }`（如 queryResultJsonExample.json），Jasper 也會認：`text` = `Content`，`url` = `Source`，`title` = `Title`。
+
+**你只要維持目前 userQueryProcess 的輸出格式即可。**
+
+---
+
+## 格式二：扁平文件列表（可選）
+
+若你想直接送「已扁平化」的文件列表，可用以下格式。
 
 **一個 JSON 檔 = 一份「文件」**，或 **多份文件組成一個陣列** 送進同一個 payload。
 

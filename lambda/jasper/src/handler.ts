@@ -1,16 +1,17 @@
 /**
  * Stage 2 – Jasper: Lambda handler.
- * Event: { documents: RawDocument[] }
- * 1) Chunk 2) Embed (MiniMax) 3) Upsert (Pinecone)
+ * Event: { documents: RawDocument[] } OR crawler format { "User Query", "Relevant Topics", "Results" }.
+ * 1) Normalize to RawDocument[] 2) Chunk 3) Embed (MiniMax) 4) Upsert (Pinecone)
  */
 import { chunkDocuments } from "./chunk.js";
+import { normalizeToDocuments } from "./crawler-to-docs.js";
 import { embedChunks } from "./embed.js";
 import { getOrCreateIndex, upsertChunks } from "./pinecone.js";
 import type { IngestEvent, IngestResponse, RawDocument } from "./types.js";
 
 export async function handler(event: IngestEvent): Promise<IngestResponse> {
   try {
-    const docs = event.documents ?? [];
+    const docs = normalizeToDocuments(event);
     if (docs.length === 0) {
       return {
         statusCode: 400,

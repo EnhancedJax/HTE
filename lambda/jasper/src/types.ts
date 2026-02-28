@@ -42,9 +42,28 @@ export interface EmbeddedChunk {
   };
 }
 
-/** Lambda event body. */
+/** Lambda event body: either raw documents or crawler format. */
 export interface IngestEvent {
-  documents: RawDocument[];
+  documents?: RawDocument[];
+  /** Crawler format from platform (userQueryProcess.tsx): flatten Results to RawDocument[]. */
+  "User Query"?: string;
+  "Relevant Topics"?: string[];
+  Results?: Record<string, Record<string, CrawlerResultItem[] | CrawlerResultSingle>>;
+}
+
+/** One item in Results[Topic][Question] array (userQueryProcess / Exa search). */
+export interface CrawlerResultItem {
+  url?: string;
+  title?: string;
+  highlight?: string;
+  image?: string;
+}
+
+/** Single object variant (e.g. queryResultJsonExample: Source, Title, Content). */
+export interface CrawlerResultSingle {
+  Source?: string;
+  Title?: string;
+  Content?: string;
 }
 
 /** Lambda success response. */

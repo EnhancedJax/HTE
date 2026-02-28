@@ -63,10 +63,26 @@ async function minimaxEmbedTexts(
     throw new Error(`MiniMax embedding error: ${res.status} ${errText}`);
   }
 
-  const data = (await res.json()) as { vectors?: number[][] };
-  const vectors = data.vectors;
-  if (!Array.isArray(vectors) || vectors.length !== texts.length) {
-    throw new Error("MiniMax embedding response: invalid vectors length");
+  const data = (await res.json()) as Record<string, unknown> & {
+    vectors?: number[][];
+    data?: Array<{ embedding?: number[] }>;
+    embeddings?: number[][];
+  };
+  let vectors: number[][];
+  if (Array.isArray(data.vectors) && data.vectors.length === texts.length) {
+    vectors = data.vectors;
+  } else if (Array.isArray(data.embeddings) && data.embeddings.length === texts.length) {
+    vectors = data.embeddings;
+  } else if (Array.isArray(data.data) && data.data.length === texts.length) {
+    vectors = data.data.map((d: { embedding?: number[] }) => d.embedding ?? []);
+    if (vectors.some((v) => !Array.isArray(v) || v.length === 0)) {
+      throw new Error("MiniMax embedding response: data[].embedding invalid");
+    }
+  } else {
+    const keys = Object.keys(data).join(", ");
+    throw new Error(
+      `MiniMax embedding response: expected vectors/embeddings/data (length ${texts.length}). Keys: ${keys}`,
+    );
   }
   return vectors;
 }
