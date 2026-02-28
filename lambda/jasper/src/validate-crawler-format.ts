@@ -1,11 +1,13 @@
 /**
- * Validate that a JSON file or directory matches the RawDocument contract for the crawler.
+ * Validate that a JSON file or directory yields valid RawDocument(s).
+ * Accepts: RawDocument, { documents: RawDocument[] }, or platform crawler format { Results }.
  * Usage: npx tsx src/validate-crawler-format.ts <file.json | dir>
  */
 import "dotenv/config";
-import { readFile, readdir } from "fs/promises";
+import { readFile, readdir, stat } from "fs/promises";
 import { join } from "path";
-import type { RawDocument } from "./types.js";
+import { normalizeToDocuments } from "./crawler-to-docs.js";
+import type { IngestEvent, RawDocument } from "./types.js";
 
 function validateOne(doc: unknown, index: number): string[] {
   const errs: string[] = [];
@@ -43,20 +45,26 @@ async function main(): Promise<void> {
 
   let documents: RawDocument[] = [];
   try {
-    const stat = await import("fs/promises").then((fs) => fs.stat(path));
-    if (stat.isDirectory()) {
+    const pathStat = await stat(path);
+    if (pathStat.isDirectory()) {
       const files = (await readdir(path)).filter((f) => f.endsWith(".json"));
       for (const f of files) {
         const s = await readFile(join(path, f), "utf-8");
-        const doc = JSON.parse(s) as unknown;
-        documents.push(doc as RawDocument);
+        const parsed = JSON.parse(s) as IngestEvent | RawDocument;
+        if (parsed && typeof parsed === "object" && "Results" in parsed && parsed.Results) {
+          documents.push(...normalizeToDocuments(parsed as IngestEvent));
+        } else {
+          documents.push(parsed as RawDocument);
+        }
       }
     } else {
       const s = await readFile(path, "utf-8");
-      const parsed = JSON.parse(s) as unknown;
+      const parsed = JSON.parse(s) as IngestEvent | RawDocument | RawDocument[];
       if (Array.isArray(parsed)) {
         documents = parsed as RawDocument[];
-      } else if (parsed && typeof parsed === "object" && Array.isArray((parsed as { documents?: unknown }).documents)) {
+      } else if (parsed && typeof parsed === "object" && "Results" in parsed && (parsed as IngestEvent).Results) {
+        documents = normalizeToDocuments(parsed as IngestEvent);
+      } else if (parsed && typeof parsed === "object" && "documents" in parsed && Array.isArray((parsed as { documents: RawDocument[] }).documents)) {
         documents = (parsed as { documents: RawDocument[] }).documents;
       } else {
         documents = [parsed as RawDocument];

@@ -10,20 +10,26 @@ import { readFile, readdir } from "fs/promises";
 
 // Load .env from cwd (lambda/jasper when run via npm run from that dir)
 config({ path: join(process.cwd(), ".env") });
+import { normalizeToDocuments } from "./crawler-to-docs.js";
 import { handler } from "./handler.js";
-import type { RawDocument } from "./types.js";
+import type { IngestEvent, RawDocument } from "./types.js";
 
 async function loadDocuments(dir: string): Promise<RawDocument[]> {
   const files = (await readdir(dir)).filter((f) => f.endsWith(".json"));
   if (files.length === 0) {
     throw new Error(`No .json files in ${dir}`);
   }
-  const out = await Promise.all(
-    files.map((f) =>
-      readFile(join(dir, f), "utf-8").then((s) => JSON.parse(s) as RawDocument),
-    ),
+  const perFile = await Promise.all(
+    files.map(async (f) => {
+      const s = await readFile(join(dir, f), "utf-8");
+      const parsed = JSON.parse(s) as IngestEvent | RawDocument;
+      if (parsed && typeof parsed === "object" && "Results" in parsed && parsed.Results) {
+        return normalizeToDocuments(parsed as IngestEvent);
+      }
+      return [parsed as RawDocument];
+    }),
   );
-  return out;
+  return perFile.flat();
 }
 
 async function main(): Promise<void> {

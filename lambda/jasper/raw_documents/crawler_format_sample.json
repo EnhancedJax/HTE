@@ -1,0 +1,36 @@
+{
+  "User Query": "Child online safety",
+  "Relevant Topics": ["Online safety", "Parental controls"],
+  "Results": {
+    "Online safety": {
+      "How can parents monitor screen time?": [
+        {
+          "url": "https://example.com/screen-time",
+          "title": "Screen Time and Kids",
+          "highlight": "Parents can use built-in device settings to set daily limits and see activity reports. Many apps also offer family dashboards for monitoring screen time across devices. Experts recommend consistent rules and open conversation rather than surveillance alone."
+        },
+        {
+          "url": "https://example.com/parental-tools",
+          "title": "Parental Control Tools",
+          "highlight": "Common features include content filters, time limits, and app blocking. Choose tools that match your child's age and your family values. Balance safety with trust as children grow."
+        }
+      ],
+      "What are risks of social media for children?": [
+        {
+          "url": "https://example.com/social-media-risks",
+          "title": "Social Media and Children",
+          "highlight": "Risks include exposure to inappropriate content, contact with strangers, and impact on mental health. Age-appropriate platforms and ongoing dialogue help. Schools and organisations offer resources for digital literacy and safety."
+        }
+      ]
+    },
+    "Parental controls": {
+      "What parental controls are available?": [
+        {
+          "url": "https://example.com/controls",
+          "title": "Guide to Parental Controls",
+          "highlight": "Operating systems, routers, and third-party apps provide options for filtering content, setting time limits, and monitoring use. Start with one layer (e.g. device or network) and adjust as needed."
+        }
+      ]
+    }
+  }
+}
