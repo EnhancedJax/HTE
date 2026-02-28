@@ -42,7 +42,7 @@ export interface EmbeddedChunk {
   };
 }
 
-/** Lambda event body: either raw documents or crawler format. */
+/** Ingest event: either raw documents or crawler format. */
 export interface IngestEvent {
   documents?: RawDocument[];
   /** Crawler format from platform (userQueryProcess.tsx): flatten Results to RawDocument[]. */
@@ -66,7 +66,7 @@ export interface CrawlerResultSingle {
   Content?: string;
 }
 
-/** Lambda success response. */
+/** Ingest success response. */
 export interface IngestResponse {
   statusCode: number;
   body: string;

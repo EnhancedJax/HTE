@@ -1,6 +1,6 @@
 /**
  * Run ingestion locally: load raw_documents/*.json or read event from stdin.
- * Loads lambda/jasper/.env so MINIMAX_* and PINECONE_* are set.
+ * Loads lambda/jasper/.env so HF_* and PINECONE_* are set.
  * Usage:
  *   npx tsx src/run-local.ts [path/to/raw_documents]
  *   echo '{"documents":[...]}' | npx tsx src/run-local.ts

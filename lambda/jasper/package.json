@@ -2,18 +2,17 @@
   "name": "jasper-ingest",
   "version": "0.1.0",
   "private": true,
-  "description": "Stage 2 – Jasper: Chunk + Embed + Build Vector DB (MiniMax + Pinecone)",
-  "main": "dist/handler.js",
+  "description": "Stage 2 – Jasper: Chunk + Embed + Build Vector DB (Hugging Face + Pinecone)",
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "invoke": "node dist/handler.js",
     "run:local": "npx tsx src/run-local.ts",
+    "run:embed-only": "npx tsx src/run-embed-only.ts",
     "validate:crawler": "npx tsx src/validate-crawler-format.ts",
-    "test:e2e": "npx tsx src/test-e2e.ts",
-    "package:lambda": "npm run build && (rm -f jasper-lambda.zip; zip -r jasper-lambda.zip dist node_modules package.json) && echo 'Created jasper-lambda.zip - upload this to Lambda'"
+    "test:e2e": "npx tsx src/test-e2e.ts"
   },
   "dependencies": {
+    "@huggingface/inference": "^4.13.14",
     "@pinecone-database/pinecone": "^4.0.0",
     "dotenv": "^16.3.1"
   },

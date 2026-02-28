@@ -1,90 +1,87 @@
 /**
- * MiniMax embedding client (fetch). Use type "db" for chunks to be stored in vector DB.
+ * Hugging Face embedding client (featureExtraction). Use for chunks to be stored in vector DB.
  */
+import { featureExtraction } from "@huggingface/inference";
 import type { Chunk } from "./types.js";
 import type { EmbeddedChunk } from "./types.js";
 
-const MINIMAX_EMBED_URL = "https://api.minimax.chat/v1/embeddings";
-const DEFAULT_MODEL = "embo-01";
+const DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
 const DEFAULT_BATCH_SIZE = 32;
 
 export interface EmbedConfig {
-  apiKey: string;
-  groupId: string;
-  model?: string;
+  accessToken: string;
+  model: string;
   batchSize?: number;
 }
 
 function getConfigFromEnv(): EmbedConfig | null {
-  const apiKey = process.env.MINIMAX_API_KEY?.trim();
-  const groupId = process.env.MINIMAX_GROUP_ID?.trim();
-  if (!apiKey || !groupId) return null;
+  const accessToken = process.env.HF_TOKEN?.trim() ?? process.env.HUGGINGFACE_TOKEN?.trim();
+  if (!accessToken) return null;
   return {
-    apiKey,
-    groupId,
-    model: process.env.MINIMAX_EMBED_MODEL?.trim() || DEFAULT_MODEL,
+    accessToken,
+    model: process.env.HF_EMBED_MODEL?.trim() || DEFAULT_MODEL,
     batchSize: Math.min(
-      Math.max(1, parseInt(process.env.MINIMAX_EMBED_BATCH_SIZE ?? "32", 10) || 32),
-      4096,
+      Math.max(1, parseInt(process.env.HF_EMBED_BATCH_SIZE ?? "32", 10) || 32),
+      128,
     ),
   };
 }
 
-/** Strip newlines for embedding (MiniMax recommends this). */
-function stripNewLines(s: string): string {
-  return s.replace(/\n/g, " ");
+/** Normalize HF featureExtraction output to number[][] (one vector per input). */
+function normalizeVectors(
+  output: (number | number[] | number[][])[],
+  expectedLength: number,
+): number[][] {
+  if (output.length !== expectedLength) {
+    throw new Error(
+      `Hugging Face embedding: expected ${expectedLength} vectors, got ${output.length}`,
+    );
+  }
+  const result: number[][] = [];
+  for (const item of output) {
+    if (Array.isArray(item)) {
+      const flat = item.flat();
+      if (flat.length > 0 && typeof flat[0] === "number") {
+        result.push(flat as number[]);
+        continue;
+      }
+    }
+    if (typeof item === "number") {
+      result.push([item]);
+      continue;
+    }
+    throw new Error(
+      `Hugging Face embedding: unexpected vector shape`,
+    );
+  }
+  return result;
 }
 
 /**
- * Call MiniMax embeddings API. Returns vectors in same order as texts.
+ * Call Hugging Face featureExtraction API. Returns vectors in same order as texts.
  */
-async function minimaxEmbedTexts(
+async function hfEmbedTexts(
   texts: string[],
   config: EmbedConfig,
 ): Promise<number[][]> {
-  const url = `${MINIMAX_EMBED_URL}?GroupId=${encodeURIComponent(config.groupId)}`;
-  const body = {
-    model: config.model ?? DEFAULT_MODEL,
-    texts: texts.map(stripNewLines),
-    type: "db" as const,
-  };
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify(body),
+  const output = await featureExtraction({
+    accessToken: config.accessToken,
+    model: config.model,
+    inputs: texts,
   });
+  return normalizeVectors(output, texts.length);
+}
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`MiniMax embedding error: ${res.status} ${errText}`);
+/**
+ * Embed a single query string (same model as chunks). Use for retrieval.
+ */
+export async function embedQuery(query: string): Promise<number[]> {
+  const config = getConfigFromEnv();
+  if (!config) {
+    throw new Error("Missing HF_TOKEN or HUGGINGFACE_TOKEN");
   }
-
-  const data = (await res.json()) as Record<string, unknown> & {
-    vectors?: number[][];
-    data?: Array<{ embedding?: number[] }>;
-    embeddings?: number[][];
-  };
-  let vectors: number[][];
-  if (Array.isArray(data.vectors) && data.vectors.length === texts.length) {
-    vectors = data.vectors;
-  } else if (Array.isArray(data.embeddings) && data.embeddings.length === texts.length) {
-    vectors = data.embeddings;
-  } else if (Array.isArray(data.data) && data.data.length === texts.length) {
-    vectors = data.data.map((d: { embedding?: number[] }) => d.embedding ?? []);
-    if (vectors.some((v) => !Array.isArray(v) || v.length === 0)) {
-      throw new Error("MiniMax embedding response: data[].embedding invalid");
-    }
-  } else {
-    const keys = Object.keys(data).join(", ");
-    throw new Error(
-      `MiniMax embedding response: expected vectors/embeddings/data (length ${texts.length}). Keys: ${keys}`,
-    );
-  }
-  return vectors;
+  const vectors = await hfEmbedTexts([query], config);
+  return vectors[0]!;
 }
 
 /**
@@ -93,7 +90,7 @@ async function minimaxEmbedTexts(
 export async function embedChunks(chunks: Chunk[]): Promise<EmbeddedChunk[]> {
   const config = getConfigFromEnv();
   if (!config) {
-    throw new Error("Missing MINIMAX_API_KEY or MINIMAX_GROUP_ID");
+    throw new Error("Missing HF_TOKEN or HUGGINGFACE_TOKEN");
   }
 
   const batchSize = config.batchSize ?? DEFAULT_BATCH_SIZE;
@@ -102,7 +99,7 @@ export async function embedChunks(chunks: Chunk[]): Promise<EmbeddedChunk[]> {
   for (let i = 0; i < chunks.length; i += batchSize) {
     const batch = chunks.slice(i, i + batchSize);
     const texts = batch.map((c) => c.text);
-    const vectors = await minimaxEmbedTexts(texts, config);
+    const vectors = await hfEmbedTexts(texts, config);
 
     for (let j = 0; j < batch.length; j++) {
       const c = batch[j]!;

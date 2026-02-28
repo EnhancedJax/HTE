@@ -1,20 +1,19 @@
 # Stage 2 – Jasper: Chunk + Embed + Build Vector DB
 
-JavaScript/TypeScript Lambda: **chunk** raw docs → **embed** with MiniMax → **upsert** into Pinecone (AWS serverless).
+**本機／腳本**：chunk raw docs → embed（Hugging Face）→ upsert（Pinecone 雲端）。無需 AWS Lambda。
 
 ## 環境設定（必讀）
 
-**詳細步驟與「每個變數放哪裡」請看：[SETUP.md](./SETUP.md)**  
-包含：MiniMax（API Key、Group ID）、Pinecone（API Key、Index、Region）、AWS Lambda（建立、環境變數、Handler）。
+**逐步設定請看：[ENV_STEPS.md](./ENV_STEPS.md)**；完整說明：[SETUP.md](./SETUP.md)。
 
-- **本機跑 Jasper**：在 `lambda/jasper/` 建立 `.env`（可從 `.env.example` 複製後填值）。
-- **部署到 Lambda**：在 AWS Lambda 主控台 → 設定 → 環境變數 裡新增所有金鑰與值。
+- 在 `lambda/jasper/` 建立 `.env`（從 `.env.example` 複製後填值）即可本機執行。
+- **Pinecone**：使用官方雲端服務，只需 **API Key**，**不需設定 host / URL**。
 
 ## Tools
 
 - **Chunking**: Recursive character splitter (~500–800 tokens, 10–20% overlap), preserves section boundaries.
-- **Embedding**: MiniMax embedding API (`embo-01`, type `db` for storage).
-- **Vector DB**: Pinecone (AWS host), cosine metric, serverless index.
+- **Embedding**: Hugging Face featureExtraction (e.g. `sentence-transformers/all-MiniLM-L6-v2`, dim 384).
+- **Vector DB**: Pinecone（雲端託管，只需 API Key），cosine metric。
 
 ## Event shape
 
@@ -42,24 +41,24 @@ JavaScript/TypeScript Lambda: **chunk** raw docs → **embed** with MiniMax → 
 - **只驗證格式**（不需 API key）：  
   `npm run validate:crawler -- ./raw_documents`  
   或指定單一 JSON 檔／目錄。
-- **完整流程**（chunk → MiniMax embed → Pinecone upsert）：  
-  請先在 `lambda/jasper/.env` 填好 `MINIMAX_API_KEY`、`MINIMAX_GROUP_ID`、`PINECONE_API_KEY` 等（可從 `.env.example` 複製再填），然後執行：  
+- **完整流程**（chunk → Hugging Face embed → Pinecone upsert）：  
+  請先在 `lambda/jasper/.env` 填好 `HF_TOKEN`、`PINECONE_API_KEY` 等（可從 `.env.example` 複製再填），然後執行：  
   `npm run test:e2e -- ./raw_documents`  
-  預設會讀取 `raw_documents/` 內所有 `.json`；可改傳其他目錄路徑。
+  若出現認證錯誤，請到 [Hugging Face 設定](https://huggingface.co/settings/tokens) 檢查 Token 權限並更新 `.env`。
 
-## Environment variables (Lambda console or `.env`)
+## Environment variables (`.env`)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `MINIMAX_API_KEY` | Yes | MiniMax API key |
-| `MINIMAX_GROUP_ID` | Yes | MiniMax Group ID (account console) |
-| `PINECONE_API_KEY` | Yes | Pinecone API key |
+| `HF_TOKEN` or `HUGGINGFACE_TOKEN` | Yes | Hugging Face access token (hf.co/settings/tokens) |
+| `HF_EMBED_MODEL` | No | Embedding model (default: `sentence-transformers/all-MiniLM-L6-v2`, dim 384) |
+| `HF_EMBED_BATCH_SIZE` | No | Batch size for embedding (default: 32) |
+| `PINECONE_API_KEY` | Yes | Pinecone API key（雲端服務，**不需 host**） |
 | `PINECONE_INDEX_NAME` | No | Index name (default: `child_online_safety_docs`) |
-| `PINECONE_ENVIRONMENT` or `PINECONE_REGION` | No | AWS region (default: `us-east-1`) |
-| `PINECONE_DIM` | No | Embedding dimension; **must match MiniMax** (e.g. `1536` for embo-01) |
-| `MINIMAX_EMBED_BATCH_SIZE` | No | Batch size for embedding (default: 32) |
+| `PINECONE_ENVIRONMENT` or `PINECONE_REGION` | No | 建立 index 時用的 region（如 `us-east-1`） |
+| `PINECONE_DIM` | No | Embedding dimension; **must match model** (e.g. `384` for MiniLM-L6-v2) |
 
-## Build & deploy
+## Build & run
 
 ```bash
 cd lambda/jasper
@@ -67,14 +66,19 @@ npm install
 npm run build
 ```
 
-Zip `dist/` and `node_modules/` (and `package.json`) for Lambda, or use your preferred IaC (Serverless Framework, SAM, CDK). Handler: `dist/handler.handler`.
-
-## Run locally (Node)
-
-Set env vars, then:
+## Run locally
 
 ```bash
-# Invoke with event from stdin
+# 從 raw_documents 目錄跑完整流程（chunk → embed → Pinecone upsert）
+npm run run:local -- ./raw_documents
+
+# 只測 embedding（不寫入 Pinecone）
+npm run run:embed-only
+```
+
+或用程式呼叫 ingest：
+
+```bash
 echo '{"documents":[{"doc_id":"1","title":"Test","url":"https://a.com","text":"Your long document text here..."}]}' | node -e "
 const { handler } = await import('./dist/handler.js');
 const event = JSON.parse(await require('fs').promises.readFile(0, 'utf-8'));
@@ -105,11 +109,12 @@ After embedding, vectors are upserted to Pinecone with `id`, `values` (embedding
 
 ## Loading raw_documents/*.json
 
-For local or batch runs, read all `raw_documents/*.json` and pass as `event.documents`. Example (Node):
+For batch runs, read all `raw_documents/*.json` and pass as `event.documents`. Or use `npm run run:local -- ./raw_documents`. Example (Node):
 
 ```js
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
+import { handler } from './dist/handler.js';
 
 const dir = './raw_documents';
 const files = (await readdir(dir)).filter(f => f.endsWith('.json'));
