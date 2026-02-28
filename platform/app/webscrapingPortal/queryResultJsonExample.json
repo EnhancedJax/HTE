@@ -1,0 +1,30 @@
+{
+    "User Query": "",
+    "Relevant Topics": [],
+    "Results": {
+        "Topic 1": {
+            "Question 1": {
+                "Source": "",
+                "Title": "",
+                "Content": ""
+            },
+            "Question 2": {
+                "Source": "",
+                "Title": "",
+                "Content": ""
+            }
+        },
+        "Topic 2": {
+            "Question 1": {
+                "Source": "",
+                "Title": "",
+                "Content": ""
+            },
+            "Question 2": {
+                "Source": "",
+                "Title": "",
+                "Content": ""
+            }
+        }
+    }
+}
