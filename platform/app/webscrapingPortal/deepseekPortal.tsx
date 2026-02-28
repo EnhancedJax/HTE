@@ -1,23 +1,23 @@
-const DEEPSEEK_API_KEY = "sk-8167f8f42713430f8cef268d0d9b3d53";
-const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
-
 export interface DeepSeekOptions {
   system?: string;
   temperature?: number;
   max_tokens?: number;
 }
 
-export default async function queryDeepSeek(query: string, opts: DeepSeekOptions = {}) {
+export default async function queryDeepSeek(
+  query: string,
+  opts: DeepSeekOptions = {},
+) {
   const messages: { role: string; content: string }[] = [];
   if (opts.system) messages.push({ role: "system", content: opts.system });
   messages.push({ role: "user", content: query });
 
   try {
-    const response = await fetch(DEEPSEEK_API_URL, {
+    const response = await fetch(process.env.DEEPSEEK_API_URL ?? "", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
       },
       body: JSON.stringify({
         model: "deepseek-chat",
