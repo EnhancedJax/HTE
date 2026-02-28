@@ -7,8 +7,6 @@ import { useQuery } from "@/lib/query-context";
 import type { TreeItem } from "@/lib/tree-structure";
 import { cn } from "@/lib/utils";
 import { useChat } from "@ai-sdk/react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   ChatCircleTextIcon,
   PaperPlaneRightIcon,
@@ -22,6 +20,8 @@ import {
 import { DefaultChatTransport } from "ai";
 import { AnimatePresence, motion } from "motion/react";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 /** Converts the tree structure to a compact indented text for the AI. */
 function serializeTree(item: TreeItem, depth = 0): string {
@@ -160,7 +160,9 @@ export function Sidebar({ open, className }: SidebarProps) {
       : "";
     chatBodyRef.current.selectedNodeSummary =
       selectedNode?.data?.summary || selectedNode?.data?.description
-        ? String(selectedNode.data.summary ?? selectedNode.data.description ?? "")
+        ? String(
+            selectedNode.data.summary ?? selectedNode.data.description ?? "",
+          )
         : "";
     chatBodyRef.current.selectedNodesContext = JSON.stringify(
       selectedNodes
@@ -175,8 +177,9 @@ export function Sidebar({ open, className }: SidebarProps) {
           }
           return { id: node.id, label, summary };
         })
-        .filter((entry): entry is { id: string; label: string; summary: string } =>
-          Boolean(entry),
+        .filter(
+          (entry): entry is { id: string; label: string; summary: string } =>
+            Boolean(entry),
         ),
     );
     chatBodyRef.current.topicQuery = query ?? "";
@@ -311,8 +314,7 @@ export function Sidebar({ open, className }: SidebarProps) {
                     >
                       {messages.length === 0 ? (
                         <p className="px-2 py-3 text-xs text-sidebar-foreground/60">
-                          Ask anything about the current topic. Responses stream
-                          in real time.
+                          Ask anything about the topic...
                         </p>
                       ) : (
                         messages.map((message) => {
@@ -390,7 +392,12 @@ export function Sidebar({ open, className }: SidebarProps) {
                                           </h3>
                                         ),
                                         code: ({ children, className }) => (
-                                          <code className={cn("font-mono text-xs", className)}>
+                                          <code
+                                            className={cn(
+                                              "font-mono text-xs",
+                                              className,
+                                            )}
+                                          >
                                             {children}
                                           </code>
                                         ),
