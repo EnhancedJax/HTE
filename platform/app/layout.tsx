@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Google_Sans, Google_Sans_Code } from "next/font/google";
+import { SidebarLayout } from "@/components/SidebarLayout";
 import "./globals.css";
 
 const customSans = Google_Sans({
@@ -27,7 +28,7 @@ export default function RootLayout({
       <body
         className={`${customSans.variable} ${customMono.variable} antialiased`}
       >
-        {children}
+        <SidebarLayout>{children}</SidebarLayout>
       </body>
     </html>
   );

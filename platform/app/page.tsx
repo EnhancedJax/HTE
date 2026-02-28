@@ -49,7 +49,7 @@ export default function Page() {
 
   return (
     <main
-      className={`w-screen flex flex-col bg-background ${hasQuery ? "h-screen" : "min-h-screen"}`}
+      className={`w-full flex flex-col bg-background overflow-auto ${hasQuery ? "flex-1 min-h-0" : "min-h-full"}`}
     >
       <motion.header
         layout
