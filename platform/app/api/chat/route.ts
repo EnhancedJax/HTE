@@ -29,12 +29,14 @@ export async function POST(request: Request) {
     treeContextText,
     selectedNodeLabel,
     selectedNodeSummary,
+    selectedNodesContext,
     topicQuery,
   }: {
     messages: UIMessage[];
     treeContextText?: string;
     selectedNodeLabel?: string;
     selectedNodeSummary?: string;
+    selectedNodesContext?: string;
     topicQuery?: string;
   } = await request.json();
 
@@ -49,8 +51,40 @@ export async function POST(request: Request) {
       `The current knowledge tree structure is:\n${treeContextText}`,
     );
   }
+  let selectedNodeItems: { id: string; label: string; summary?: string }[] = [];
+  if (selectedNodesContext) {
+    try {
+      const parsed = JSON.parse(selectedNodesContext);
+      if (Array.isArray(parsed)) {
+        selectedNodeItems = parsed
+          .filter(
+            (item): item is { id?: unknown; label?: unknown; summary?: unknown } =>
+              Boolean(item) && typeof item === "object",
+          )
+          .map((item) => ({
+            id: typeof item.id === "string" ? item.id : "",
+            label: typeof item.label === "string" ? item.label : "",
+            summary: typeof item.summary === "string" ? item.summary : undefined,
+          }))
+          .filter((item) => item.label.length > 0);
+      }
+    } catch {
+      selectedNodeItems = [];
+    }
+  }
 
-  if (selectedNodeLabel) {
+  if (selectedNodeItems.length > 1) {
+    const selectedNodeList = selectedNodeItems
+      .map((item) => (item.summary ? `- "${item.label}" — ${item.summary}` : `- "${item.label}"`))
+      .join("\n");
+    contextParts.push(
+      `The user currently has multiple nodes selected:\n${selectedNodeList}`,
+    );
+  } else if (selectedNodeItems.length === 1) {
+    const [item] = selectedNodeItems;
+    const nodeDesc = item.summary ? `"${item.label}" — ${item.summary}` : `"${item.label}"`;
+    contextParts.push(`The user is currently viewing the node: ${nodeDesc}`);
+  } else if (selectedNodeLabel) {
     const nodeDesc = selectedNodeSummary
       ? `"${selectedNodeLabel}" — ${selectedNodeSummary}`
       : `"${selectedNodeLabel}"`;

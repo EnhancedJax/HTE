@@ -39,9 +39,13 @@ const variants: AnimatedGroupProps["variants"] = {
   },
 };
 
-const MODES: { value: PipelineMode; label: string; icon: typeof MagnifyingGlassIcon }[] = [
+const MODES: {
+  value: PipelineMode;
+  label: string;
+  icon: typeof MagnifyingGlassIcon;
+}[] = [
   { value: "research", label: "Research", icon: MagnifyingGlassIcon },
-  { value: "education", label: "Education", icon: BookOpenTextIcon },
+  { value: "education", label: "Explore", icon: BookOpenTextIcon },
 ];
 
 export default function Page() {
@@ -61,7 +65,7 @@ export default function Page() {
 
   return (
     <main
-      className={`w-full flex flex-col bg-background overflow-auto ${hasQuery ? "flex-1 min-h-0" : "min-h-full"}`}
+      className={`w-full flex flex-col bg-background overflow-hidden ${hasQuery ? "flex-1 min-h-0" : "min-h-full"}`}
     >
       <motion.header
         layout
@@ -78,7 +82,7 @@ export default function Page() {
               Knowledge Tree Explorer
             </h1>
             <p className="text-sm text-muted-foreground mb-8 text-center">
-              Explore the knowledge tree of a topic.
+              Dive deeper, learn more.
             </p>
           </AnimatedGroup>
         )}
@@ -111,7 +115,11 @@ export default function Page() {
                       : "text-muted-foreground hover:text-foreground"
                   } ${hasQuery ? "cursor-default opacity-70" : "cursor-pointer"}`}
                 >
-                  <Icon className="size-3.5" weight={isActive ? "bold" : "regular"} aria-hidden />
+                  <Icon
+                    className="size-3.5"
+                    weight={isActive ? "bold" : "regular"}
+                    aria-hidden
+                  />
                   {m.label}
                 </button>
               );

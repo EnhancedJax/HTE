@@ -30,6 +30,11 @@ interface GraphTreeContextValue {
   /** The node the user has currently selected/focused on the graph canvas. */
   selectedNode: Node<TreeNodeData> | null;
   setSelectedNode: React.Dispatch<React.SetStateAction<Node<TreeNodeData> | null>>;
+  /** IDs of all currently selected nodes (supports multi-select on graph). */
+  selectedNodeIds: string[];
+  setSelectedNodeIds: React.Dispatch<React.SetStateAction<string[]>>;
+  /** Materialized selected nodes from current graph state. */
+  selectedNodes: Node<TreeNodeData>[];
   /** Current pipeline mode for expand calls. */
   pipelineMode: PipelineMode;
 }
@@ -71,6 +76,7 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node<TreeNodeData> | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (status === "success") {
@@ -80,8 +86,26 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
       setNodes([]);
       setEdges([]);
       setSelectedNode(null);
+      setSelectedNodeIds([]);
     }
   }, [status, fetchedNodes, fetchedEdges, query]);
+
+  useEffect(() => {
+    const nodeIds = new Set(nodes.map((node) => node.id));
+
+    setSelectedNodeIds((current) =>
+      current.filter((nodeId) => nodeIds.has(nodeId)),
+    );
+
+    setSelectedNode((current) => {
+      if (!current) return null;
+      return nodes.find((node) => node.id === current.id) ?? null;
+    });
+  }, [nodes]);
+
+  const selectedNodes = selectedNodeIds
+    .map((nodeId) => nodes.find((node) => node.id === nodeId))
+    .filter((node): node is Node<TreeNodeData> => Boolean(node));
 
   const treeRoot = nodes.length > 0 ? nodesEdgesToTree(nodes, edges) : null;
 
@@ -98,6 +122,9 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
     setFocusNodeId,
     selectedNode,
     setSelectedNode,
+    selectedNodeIds,
+    setSelectedNodeIds,
+    selectedNodes,
     pipelineMode,
   };
 

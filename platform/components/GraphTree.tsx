@@ -87,10 +87,13 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
     setFocusNodeId,
     selectedNode,
     setSelectedNode,
+    selectedNodeIds,
+    setSelectedNodeIds,
     pipelineMode,
   } = useGraphTreeContext();
   const [diveDeepLoading, setDiveDeepLoading] = useState(false);
   const diveDeepLoadingRef = useRef(false);
+  const selectedNodeIdsRef = useRef<string[]>(selectedNodeIds);
   const graphStateRef = useRef<{
     nodes: Node<TreeNodeData>[];
     edges: typeof edges;
@@ -108,6 +111,23 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
     graphStateRef.current = { nodes, edges };
   }, [nodes, edges]);
 
+  useEffect(() => {
+    selectedNodeIdsRef.current = selectedNodeIds;
+  }, [selectedNodeIds]);
+
+  const applySelectionToNodes = useCallback(
+    (nodeIds: string[]) => {
+      const selectedIds = new Set(nodeIds);
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => ({
+          ...node,
+          selected: selectedIds.has(node.id),
+        })),
+      );
+    },
+    [setNodes],
+  );
+
   const applyLayoutAndColors = useCallback(
     (nextNodes: Node<TreeNodeData>[], nextEdges: typeof edges) => {
       const layouted = horizontalTreeLayout(
@@ -116,9 +136,14 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
         LAYOUT_OPTIONS,
       );
       const coloredNodes = enrichNodesWithBranchColors(layouted, nextEdges);
-      graphStateRef.current = { nodes: coloredNodes, edges: nextEdges };
+      const selectedIds = new Set(selectedNodeIdsRef.current);
+      const coloredSelectedNodes = coloredNodes.map((node) => ({
+        ...node,
+        selected: selectedIds.has(node.id),
+      }));
+      graphStateRef.current = { nodes: coloredSelectedNodes, edges: nextEdges };
       setEdges(nextEdges);
-      setNodes(coloredNodes);
+      setNodes(coloredSelectedNodes);
     },
     [setEdges, setNodes],
   );
@@ -134,6 +159,8 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
       return;
     }
     setSelectedNode(node);
+    setSelectedNodeIds([node.id]);
+    applySelectionToNodes([node.id]);
     const focusView = () => {
       if (reactFlow.viewportInitialized) {
         const flowNodes = reactFlow.getNodes();
@@ -160,11 +187,27 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
       requestAnimationFrame(focusView);
     });
     return () => cancelAnimationFrame(rafId);
-  }, [focusNodeId, nodes, reactFlow, setFocusNodeId, setSelectedNode]);
+  }, [
+    focusNodeId,
+    nodes,
+    reactFlow,
+    setFocusNodeId,
+    setSelectedNode,
+    setSelectedNodeIds,
+    applySelectionToNodes,
+  ]);
 
   const onNodesChange = useCallback(
-    (changes: Parameters<typeof applyNodeChanges>[0]) =>
-      setNodes((nds) => applyNodeChanges(changes, nds) as Node<TreeNodeData>[]),
+    (changes: Parameters<typeof applyNodeChanges>[0]) => {
+      const nonSelectionChanges = changes.filter((change) => change.type !== "select");
+      if (nonSelectionChanges.length === 0) {
+        return;
+      }
+      setNodes(
+        (nds) =>
+          applyNodeChanges(nonSelectionChanges, nds) as Node<TreeNodeData>[],
+      );
+    },
     [setNodes],
   );
   const onEdgesChange = useCallback(
@@ -312,14 +355,42 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
   }, [selectedNode, expandNode]);
 
   const onNodeClick: NodeMouseHandler<Node<TreeNodeData>> = useCallback(
-    async (_event, node) => {
+    async (event, node) => {
+      if (event.shiftKey) {
+        const currentSelection = selectedNodeIdsRef.current;
+        const nextSelection = currentSelection.includes(node.id)
+          ? currentSelection.filter((nodeId) => nodeId !== node.id)
+          : [...currentSelection, node.id];
+        selectedNodeIdsRef.current = nextSelection;
+        setSelectedNodeIds(nextSelection);
+        applySelectionToNodes(nextSelection);
+
+        if (nextSelection.length === 0) {
+          setSelectedNode(null);
+          return;
+        }
+
+        const nextPrimaryId = nextSelection.includes(node.id)
+          ? node.id
+          : nextSelection[nextSelection.length - 1];
+        const nextPrimaryNode =
+          nextPrimaryId === node.id
+            ? node
+            : nodes.find((candidate) => candidate.id === nextPrimaryId) ?? null;
+        setSelectedNode(nextPrimaryNode);
+        return;
+      }
+
       const shouldAutoDiveDeep =
         pipelineMode === "education" &&
         Number(node.data?.level ?? 1) >= 2 &&
         !edges.some((edge) => edge.source === node.id) &&
         !diveDeepLoadingRef.current;
 
+      selectedNodeIdsRef.current = [node.id];
+      setSelectedNodeIds([node.id]);
       setSelectedNode(node);
+      applySelectionToNodes([node.id]);
       if (!shouldAutoDiveDeep && reactFlow.viewportInitialized) {
         reactFlow.fitView({
           nodes: [node],
@@ -332,6 +403,8 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
 
       if (shouldAutoDiveDeep) {
         await expandNode(node);
+        // Re-focus the clicked node after expansion so education mode doesn't drift/zoom out.
+        setFocusNodeId(node.id);
       }
     },
     [
@@ -340,11 +413,27 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
       diveDeepLoading,
       expandNode,
       reactFlow,
+      nodes,
+      setFocusNodeId,
+      setSelectedNodeIds,
       setSelectedNode,
+      applySelectionToNodes,
     ],
   );
 
-  const closeCard = useCallback(() => setSelectedNode(null), [setSelectedNode]);
+  const closeCard = useCallback(() => {
+    selectedNodeIdsRef.current = [];
+    setSelectedNodeIds([]);
+    setSelectedNode(null);
+    applySelectionToNodes([]);
+  }, [setSelectedNodeIds, setSelectedNode, applySelectionToNodes]);
+
+  const onPaneClick = useCallback(() => {
+    selectedNodeIdsRef.current = [];
+    setSelectedNodeIds([]);
+    setSelectedNode(null);
+    applySelectionToNodes([]);
+  }, [setSelectedNodeIds, setSelectedNode, applySelectionToNodes]);
 
   return (
     <div className="relative h-full w-full">
@@ -355,6 +444,7 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           defaultEdgeOptions={{ type: "treeEdge" }}

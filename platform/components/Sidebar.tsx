@@ -141,7 +141,8 @@ function SidebarTreeItem({ item, depth, onSelectNode }: SidebarTreeItemProps) {
 
 export function Sidebar({ open, className }: SidebarProps) {
   const { query } = useQuery();
-  const { treeRoot, status, setFocusNodeId, selectedNode } = useGraphTreeContext();
+  const { treeRoot, status, setFocusNodeId, selectedNode, selectedNodes } =
+    useGraphTreeContext();
   const [activeView, setActiveView] = useState<SidebarView>("tree");
   const [chatInput, setChatInput] = useState("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -161,8 +162,25 @@ export function Sidebar({ open, className }: SidebarProps) {
       selectedNode?.data?.summary || selectedNode?.data?.description
         ? String(selectedNode.data.summary ?? selectedNode.data.description ?? "")
         : "";
+    chatBodyRef.current.selectedNodesContext = JSON.stringify(
+      selectedNodes
+        .map((node) => {
+          const label = node.data?.label ? String(node.data.label) : "";
+          const summary =
+            node.data?.summary || node.data?.description
+              ? String(node.data.summary ?? node.data.description ?? "")
+              : "";
+          if (!label) {
+            return null;
+          }
+          return { id: node.id, label, summary };
+        })
+        .filter((entry): entry is { id: string; label: string; summary: string } =>
+          Boolean(entry),
+        ),
+    );
     chatBodyRef.current.topicQuery = query ?? "";
-  }, [treeRoot, selectedNode, query]);
+  }, [treeRoot, selectedNode, selectedNodes, query]);
 
   const {
     messages,

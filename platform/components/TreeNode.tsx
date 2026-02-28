@@ -67,7 +67,7 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
         ? "bg-secondary text-secondary-foreground border-secondary"
         : "bg-muted text-muted-foreground border-muted";
   const selectedClass = selected
-    ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
+    ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
     : "";
   const skeletonClass = isSkeleton
     ? "skeleton-shimmer bg-muted/70 text-muted-foreground border-dashed border-muted-foreground/40"
