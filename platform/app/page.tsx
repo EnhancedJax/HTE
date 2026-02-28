@@ -2,8 +2,12 @@
 
 import { AnimatedGroup, AnimatedGroupProps } from "@/components/AnimatedGroup";
 import { GraphTree } from "@/components/GraphTree";
+import { AnimatedShinyButton } from "@/components/ui/animated-shiny-button";
 import { useQuery } from "@/lib/query-context";
-import { RocketLaunchIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  ArrowCounterClockwiseIcon,
+  RocketLaunchIcon,
+} from "@phosphor-icons/react";
 import "@xyflow/react/dist/style.css";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useState } from "react";
@@ -86,18 +90,38 @@ export default function Page() {
             placeholder="Search a topic (e.g. Climate Change, Quantum Computing)"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            className="flex-1 min-w-0 rounded-full bg-transparent px-4 py-2.5 pr-30 text-sm placeholder:text-muted-foreground focus-visible:outline-none"
+            className="flex-1 min-w-0 rounded-full bg-transparent px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none"
           />
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            type="submit"
-            className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <RocketLaunchIcon className="size-4" weight="bold" aria-hidden />
-            Research
-          </motion.button>
+          {hasQuery ? (
+            <AnimatedShinyButton
+              variant="default"
+              type="button"
+              onClick={() => {
+                setQuery(undefined);
+                setInputValue("");
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <ArrowCounterClockwiseIcon
+                  className="size-4"
+                  weight="bold"
+                  aria-hidden
+                />
+                Reset
+              </div>
+            </AnimatedShinyButton>
+          ) : (
+            <AnimatedShinyButton type="submit">
+              <div className="flex items-center gap-2">
+                <RocketLaunchIcon
+                  className="size-4"
+                  weight="bold"
+                  aria-hidden
+                />
+                Research
+              </div>
+            </AnimatedShinyButton>
+          )}
         </motion.form>
       </motion.header>
       <AnimatePresence mode="wait">
