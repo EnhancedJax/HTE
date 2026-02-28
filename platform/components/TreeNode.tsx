@@ -99,10 +99,15 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
         style={style}
       >
         <div className="text-left">
-          <p className="text-base leading-snug wrap-break-word">{label}</p>
+          <p className="text-base leading-snug wrap-break-word font-bold">
+            {label}
+          </p>
           {summary && (
             <p className="mt-1 text-xs leading-relaxed wrap-break-word opacity-90">
-              {renderSummaryWithHighlights(summary)}
+              {renderSummaryWithHighlights(
+                summary,
+                level === 1 ? "root" : level !== 2 ? "color" : "underscore",
+              )}
             </p>
           )}
         </div>

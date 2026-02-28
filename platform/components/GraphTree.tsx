@@ -142,7 +142,7 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
           reactFlow.fitView({
             nodes: [flowNode],
             padding: {
-              right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
+              right: `${NODE_CARD_FIT_PADDING_RIGHT}px`,
             },
             duration: 400,
           });
@@ -230,17 +230,6 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
       };
 
       applyExpansionFrame(skeletonNodes, skeletonEdges);
-      // // One-time zoom out on the first dive-deep interaction.
-      // requestAnimationFrame(() => {
-      //   requestAnimationFrame(() => {
-      //     void reactFlow.fitView({
-      //       padding: {
-      //         right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
-      //       },
-      //       duration: 350,
-      //     });
-      //   });
-      // });
 
       try {
         const expandOptions = {
@@ -324,22 +313,22 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
 
   const onNodeClick: NodeMouseHandler<Node<TreeNodeData>> = useCallback(
     async (_event, node) => {
-      setSelectedNode(node);
-      if (reactFlow.viewportInitialized) {
-        reactFlow.fitView({
-          nodes: [node],
-          padding: {
-            right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
-          },
-          duration: 400,
-        });
-      }
-
       const shouldAutoDiveDeep =
         pipelineMode === "education" &&
         Number(node.data?.level ?? 1) >= 2 &&
         !edges.some((edge) => edge.source === node.id) &&
         !diveDeepLoadingRef.current;
+
+      setSelectedNode(node);
+      if (!shouldAutoDiveDeep && reactFlow.viewportInitialized) {
+        reactFlow.fitView({
+          nodes: [node],
+          padding: {
+            right: `${NODE_CARD_FIT_PADDING_RIGHT}px`,
+          },
+          duration: 400,
+        });
+      }
 
       if (shouldAutoDiveDeep) {
         await expandNode(node);
@@ -387,7 +376,7 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
           />
         </ReactFlow>
       </div>
-      {selectedNode && selectedNode.data && (
+      {pipelineMode !== "education" && selectedNode && selectedNode.data && (
         <aside className="absolute top-3 bottom-3 right-3 z-10 w-80 flex flex-col">
           <NodeCard
             nodeId={selectedNode.id}

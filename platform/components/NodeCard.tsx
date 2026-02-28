@@ -17,7 +17,7 @@ interface NodeCardProps {
 // Utility to render summary with underscores _highlighted_ as primary color
 export function renderSummaryWithHighlights(
   summary: string,
-  method: "underscore" | "color" = "color",
+  method: "underscore" | "color" | "root" = "color",
 ) {
   // Split on underscores, keep underscores,
   // e.g. "A _keyword_ is _important_." → ["A ", "keyword", " is ", "important", "."]
@@ -46,7 +46,7 @@ export function renderSummaryWithHighlights(
     part.highlighted ? (
       <span
         key={i}
-        className={` ${method === "underscore" ? "px-1 py-0.5 bg-foreground/50 rounded-md" : "text-primary"}`}
+        className={`px-2 py-0.5 rounded-md ${method === "root" ? "underline px-0 py-0" : method === "underscore" ? " bg-white" : "text-[#67e0f5] bg-primary/20"}`}
       >
         {part.text}
       </span>
