@@ -1,4 +1,4 @@
-import type { TreeDataResponse } from "@/lib/schemas/tree";
+import type { TreeDataResponse, TreeExpandResponse } from "@/lib/schemas/tree";
 
 const TREE_API_PATH = "/api/tree";
 
@@ -21,4 +21,29 @@ export async function fetchTreeData(query?: string): Promise<TreeDataResponse> {
 
   const data = (await res.json()) as TreeDataResponse;
   return data;
+}
+
+/**
+ * Fetches a generated subtree for a leaf node ("Dive deep").
+ * Returns new nodes and edges to merge into the current tree.
+ */
+export async function fetchExpandSubtree(
+  nodeId: string,
+  _query?: string,
+): Promise<TreeExpandResponse> {
+  const url = new URL(`${TREE_API_PATH}/expand`, window.location.origin);
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ nodeId: nodeId.trim(), query: _query?.trim() }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      text || `Expand API error: ${res.status} ${res.statusText}`,
+    );
+  }
+
+  return (await res.json()) as TreeExpandResponse;
 }

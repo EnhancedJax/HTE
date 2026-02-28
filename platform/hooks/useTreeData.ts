@@ -8,10 +8,8 @@ import { payloadToFlowEdges, payloadToFlowNodes } from "@/lib/tree-map";
 import type { Edge, Node } from "@xyflow/react";
 import { useCallback, useEffect, useState } from "react";
 
-const LAYOUT_OPTIONS: TreeLayoutOptions = {
+export const LAYOUT_OPTIONS: TreeLayoutOptions = {
   rootId: "root",
-  // nodeWidth: 150,
-  // nodeHeight: 50,
   spacingX: 300,
   spacingY: 120,
   originX: 80,

@@ -49,3 +49,9 @@ export interface TreeDataResponse {
   nodes: TreeNodePayload[];
   edges: TreeEdgePayload[];
 }
+
+/** Response shape for POST /api/tree/expand (subtree for a leaf node). */
+export interface TreeExpandResponse {
+  nodes: TreeNodePayload[];
+  edges: TreeEdgePayload[];
+}

@@ -1,9 +1,10 @@
 "use client";
 
 import { GraphTree } from "@/components/GraphTree";
-import { motion, AnimatePresence } from "motion/react";
+import { ArrowRight } from "@phosphor-icons/react";
 import "@xyflow/react/dist/style.css";
-import { useState, useCallback } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useState } from "react";
 
 export default function Page() {
   const [inputValue, setInputValue] = useState("");
@@ -22,21 +23,21 @@ export default function Page() {
 
   return (
     <main
-      className={`w-screen flex flex-col ${hasQuery ? "h-screen" : "min-h-screen bg-white"}`}
+      className={`w-screen flex flex-col ${hasQuery ? "h-screen" : "min-h-screen"}`}
     >
       <motion.header
         layout
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className={
+        className={`z-10 ${
           hasQuery
-            ? "shrink-0 border-b border-border bg-white px-4 py-3"
-            : "flex min-h-screen w-full items-center justify-center bg-white"
-        }
+            ? "shrink-0 flex w-full items-center justify-center px-4 py-3"
+            : "flex min-h-screen w-full items-center justify-center"
+        }`}
       >
         <motion.form
           layout
           onSubmit={handleSubmit}
-          className="flex w-full max-w-2xl gap-2 items-center px-4"
+          className={`relative flex w-full max-w-2xl items-center rounded-full px-1 py-1 ring-offset-background focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 border border-input bg-background shadow-lg`}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
           <label htmlFor="knowledge-query" className="sr-only">
@@ -48,12 +49,13 @@ export default function Page() {
             placeholder="Search a topic (e.g. Climate Change, Quantum Computing)"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            className="flex-1 min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex-1 min-w-0 rounded-full bg-transparent px-4 py-2.5 pr-30 text-sm placeholder:text-muted-foreground focus-visible:outline-none"
           />
           <button
             type="submit"
-            className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
+            <ArrowRight className="size-4" weight="bold" aria-hidden />
             Research
           </button>
         </motion.form>
@@ -66,7 +68,7 @@ export default function Page() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="flex-1 min-h-0 h-full"
+            className="flex-1 min-h-0 h-full fixed top-0 left-0 w-full"
           >
             <GraphTree query={query} />
           </motion.div>

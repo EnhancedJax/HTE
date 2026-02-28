@@ -14,8 +14,11 @@ import {
 } from "@xyflow/react";
 import { useCallback, useState } from "react";
 
-import { useTreeData } from "@/hooks/useTreeData";
+import { LAYOUT_OPTIONS, useTreeData } from "@/hooks/useTreeData";
+import { fetchExpandSubtree } from "@/lib/api/tree";
 import type { TreeNodeData } from "@/lib/graph-types";
+import { horizontalTreeLayout } from "@/lib/radial-tree-layout";
+import { payloadToFlowEdges, payloadToFlowNodes } from "@/lib/tree-map";
 import { NodeCard } from "./NodeCard";
 import { TreeEdge } from "./TreeEdge";
 import { TreeNode } from "./TreeNode";
@@ -62,22 +65,59 @@ function GraphTreeInner({ query }: GraphTreeInnerProps) {
   }
 
   return (
-    <GraphTreeFlow initialNodes={fetchedNodes} initialEdges={fetchedEdges} />
+    <GraphTreeFlow
+      initialNodes={fetchedNodes}
+      initialEdges={fetchedEdges}
+      query={query}
+    />
   );
 }
 
 interface GraphTreeFlowProps {
   initialNodes: Node<TreeNodeData>[];
   initialEdges: Edge[];
+  query?: string;
 }
 
-function GraphTreeFlow({ initialNodes, initialEdges }: GraphTreeFlowProps) {
+function GraphTreeFlow({
+  initialNodes,
+  initialEdges,
+  query,
+}: GraphTreeFlowProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node<TreeNodeData> | null>(
     null,
   );
+  const [diveDeepLoading, setDiveDeepLoading] = useState(false);
   const reactFlow = useReactFlow<Node<TreeNodeData>>();
+
+  const isLeaf =
+    selectedNode && !edges.some((e) => e.source === selectedNode.id);
+
+  const onDiveDeep = useCallback(async () => {
+    if (!selectedNode) return;
+    setDiveDeepLoading(true);
+    try {
+      const data = await fetchExpandSubtree(selectedNode.id, query);
+      const newFlowNodes = payloadToFlowNodes(data.nodes);
+      const newFlowEdges = payloadToFlowEdges(data.edges);
+      const mergedEdges = [...edges, ...newFlowEdges];
+
+      setNodes((prev) =>
+        horizontalTreeLayout(
+          [...prev, ...newFlowNodes],
+          mergedEdges,
+          LAYOUT_OPTIONS,
+        ),
+      );
+      setEdges(mergedEdges);
+    } catch {
+      // Could surface error in UI; for now no-op
+    } finally {
+      setDiveDeepLoading(false);
+    }
+  }, [selectedNode, query, edges, setNodes, setEdges]);
 
   const onNodeClick: NodeMouseHandler<Node<TreeNodeData>> = useCallback(
     (_event, node) => {
@@ -96,8 +136,8 @@ function GraphTreeFlow({ initialNodes, initialEdges }: GraphTreeFlowProps) {
   const closeCard = useCallback(() => setSelectedNode(null), []);
 
   return (
-    <div className="flex h-full w-full">
-      <div className="flex-1 relative">
+    <div className="relative h-full w-full">
+      <div className="absolute inset-0">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -126,11 +166,14 @@ function GraphTreeFlow({ initialNodes, initialEdges }: GraphTreeFlowProps) {
         </ReactFlow>
       </div>
       {selectedNode && selectedNode.data && (
-        <aside className="w-80 shrink-0 flex flex-col">
+        <aside className="absolute top-3 bottom-3 right-3 z-10 w-80 flex flex-col">
           <NodeCard
             nodeId={selectedNode.id}
             data={selectedNode.data as TreeNodeData}
             onClose={closeCard}
+            isLeaf={!!isLeaf}
+            onDiveDeep={isLeaf ? onDiveDeep : undefined}
+            diveDeepLoading={diveDeepLoading}
           />
         </aside>
       )}
