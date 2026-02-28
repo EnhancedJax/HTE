@@ -25,9 +25,14 @@ export default async function queryDeepSeek(query: string) {
         }
 
         const data = await response.json();
-        return data.choices[0]?.message?.content ?? "";
+        return data;
     } catch (error) {
         console.error("Error querying DeepSeek:", error);
         throw error;
     }
 }
+
+console.log("Testing DeepSeek API...");
+queryDeepSeek("What are the latest research trends in renewable energy?").then(response => {
+    console.log("Response:", response);
+}).catch(console.error);

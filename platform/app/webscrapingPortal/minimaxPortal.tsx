@@ -1,55 +1,56 @@
-const MINIMAX_API_KEY = "sk-api-Q_TJo6by5dvgiRaVBBjFocNUKRwAxirp4VMtn6vazrRKAg7tqudKR2LRQYxTms-uF9a9G0yuUU0k6YJScno39SITFEwz7XH5uLc0agTQIWfCQRt-aLoIQaU";
-const MINIMAX_API_URL = "https://api.minimax.chat/v1/text/chatcompletion_v2";
+//these are hard coded for MPV purposes and for ease of use/efficiency during hackathon
+const GROUP_ID = "2027572980330009043"; 
+const API_KEY = "sk-api-p5GTBzgqAGZULLv1fZOE2zwxgjnqFn5a6GrjT5nRWwo08d6ExXXg8D35D9V60ry_eEwcYDRn-kOaODsGD7zGcno34B3Y-MbKRB29Fv2Tq9h9OAE-vxtiaxs";   // Your secret API Key (starts with 'sk-...')
+const API_HOST = "https://api.minimax.io";
+const url = `${API_HOST}/v1/chat/completions?GroupId=${GROUP_ID}`;
 
-interface MinimaxMessage {
-    role: "system" | "user" | "assistant";
-    content: string;
+function removeThinkTags(content: string): string {
+    return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 }
 
-interface MinimaxResponse {
-    choices: {
-        message: {
-            content: string;
-        };
-    }[];
-}
+async function askMiniMax(messages: {role: string, content: string}[]): Promise<string | null> {
 
-async function callMinimax(
-    messages: MinimaxMessage[],
-    model: string = "abab6.5s-chat"
-): Promise<string> {
-    const response = await fetch(MINIMAX_API_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${MINIMAX_API_KEY}`,
-        },
-        body: JSON.stringify({
-            model: model,
-            messages: messages,
-        }),
-    });
+    const headers = {
+        "Authorization": `Bearer ${API_KEY}`,
+        "Content-Type": "application/json"
+    };
 
-    if (!response.ok) {
-        throw new Error(`Minimax API error: ${response.status} ${response.statusText}`);
+    const body = {
+        model: "MiniMax-M2.5",
+        messages: messages,
+        temperature: 0.7,
+    };
+
+    try {
+        console.log("Sending request to MiniMax...");
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorBody}`);
+        }
+
+        const data = await response.json();
+
+        if (data.choices && data.choices.length > 0) {
+            const rawReply = data.choices[0].message.content;
+            const cleanReply = removeThinkTags(rawReply);
+            console.log("\nMiniMax's Response (cleaned):");
+            console.log(cleanReply);
+            return cleanReply;
+        } else {
+            console.log("Unexpected API response structure:", data);
+            return null;
+        }
+
+    } catch (error) {
+        console.error("Error calling MiniMax API:", error);
+        return null;
     }
-
-    const data: MinimaxResponse = await response.json();
-    return data.choices[0]?.message?.content ?? "";
 }
 
-// Quick test function - run with: npx tsx userProcessing.tsx
-export async function testMinimax() {
-    console.log("Testing Minimax API...");
-    
-    const response = await callMinimax([
-        { role: "system", content: "You are a helpful assistant. Keep responses brief." },
-        { role: "user", content: "Say hello in 5 words or less." }
-    ]);
-    
-    console.log("Response:", response);
-    return response;
-}
-
-// Uncomment to run test directly:
-testMinimax().then(console.log).catch(console.error);
+askMiniMax([{role: "user", content: "Given the following question: What can you tell me about recent quantum computing technology?\nPlease break it down and extract a list of 5 relevant topics/keywords, each topic being only 3 words max.\nGive it in the format: Topic 1, Topic 2, Topic 3,...."}]);
