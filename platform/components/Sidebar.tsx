@@ -242,7 +242,7 @@ export function Sidebar({ open, className }: SidebarProps) {
           <TreeStructureIcon className="size-5 shrink-0 text-sidebar-foreground" />
           <span className="flex flex-row items-baseline gap-2">
             <span className="truncate text-sm font-medium text-sidebar-foreground">
-              KTE
+              ConceptBranch KTE
             </span>
             <span className="truncate text-xs text-sidebar-foreground/60">
               v0.1.0

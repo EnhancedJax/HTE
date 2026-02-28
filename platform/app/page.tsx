@@ -2,6 +2,15 @@
 
 import { AnimatedGroup, AnimatedGroupProps } from "@/components/AnimatedGroup";
 import { GraphTree } from "@/components/GraphTree";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AnimatedShinyButton } from "@/components/ui/animated-shiny-button";
 import Novatrix from "@/components/ui/novatrix-background";
 import { useQuery, type PipelineMode } from "@/lib/query-context";
@@ -11,7 +20,7 @@ import {
   MagnifyingGlassIcon,
   RocketLaunchIcon,
 } from "@phosphor-icons/react";
-import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr";
+import { LinuxLogoIcon, SparkleIcon } from "@phosphor-icons/react/dist/ssr";
 import "@xyflow/react/dist/style.css";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useState } from "react";
@@ -50,8 +59,11 @@ const MODES: {
   { value: "education", label: "Explore", icon: BookOpenTextIcon },
 ];
 
+const NOVATRIX_COLOR: [number, number, number] = [0.15, 0.15, 0.15];
+
 export default function Page() {
   const [inputValue, setInputValue] = useState("");
+  const [isEarlyAccessDialogOpen, setIsEarlyAccessDialogOpen] = useState(true);
   const { query, setQuery, pipelineMode, setPipelineMode } = useQuery();
 
   const handleSubmit = useCallback(
@@ -69,10 +81,27 @@ export default function Page() {
     <main
       className={`w-full flex flex-col bg-background overflow-hidden ${hasQuery ? "flex-1 min-h-0" : "min-h-full"}`}
     >
+      <AlertDialog
+        open={isEarlyAccessDialogOpen}
+        onOpenChange={setIsEarlyAccessDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Early Version Notice</AlertDialogTitle>
+            <AlertDialogDescription>
+              ConceptBranch KTE is an early version! Thanks for trying it out
+              while we keep improving the experience.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {!hasQuery && (
         <div className="absolute inset-0 top-0 left-0 right-0 bottom-0">
           <Novatrix
-            color={[0.15, 0.15, 0.15]}
+            color={NOVATRIX_COLOR}
             amplitude={0.1}
             mouseReact={true}
             speed={1.0}
@@ -104,8 +133,13 @@ export default function Page() {
                 {/* Faded out icon, choose something tree/knowledge themed if using your own icon library */}
                 <LinuxLogoIcon className="w-28 h-28 text-foreground" />
               </span>
+              <span className="absolute flex items-center gap-2 left-[160px] bottom-[80px] z-20 rounded-xl border border-border/70 bg-card/90 px-3 py-1 text-sm font-medium text-foreground shadow-sm text-nowrap">
+                <SparkleIcon weight="fill" />
+                Knowledge Tree Explorer!
+                <span className="absolute -left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-45 border-b border-l border-border/70 bg-card/90" />
+              </span>
               <h1 className="text-3xl font-bold mb-2 text-center relative z-10">
-                Knowledge Tree Explorer
+                ConceptBranch
               </h1>
             </div>
             <p className="text-sm text-muted-foreground mb-10 text-center">
