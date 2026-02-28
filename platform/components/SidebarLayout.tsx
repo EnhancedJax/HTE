@@ -3,14 +3,34 @@
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
 }
 
 export function SidebarLayout({ children }: SidebarLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const desktopMediaQuery = window.matchMedia("(min-width: 768px)");
+
+    const syncSidebarToViewport = (isDesktop: boolean) => {
+      setSidebarOpen(isDesktop);
+    };
+
+    syncSidebarToViewport(desktopMediaQuery.matches);
+
+    const handleViewportChange = (event: MediaQueryListEvent) => {
+      syncSidebarToViewport(event.matches);
+    };
+
+    desktopMediaQuery.addEventListener("change", handleViewportChange);
+
+    return () => {
+      desktopMediaQuery.removeEventListener("change", handleViewportChange);
+    };
+  }, []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
