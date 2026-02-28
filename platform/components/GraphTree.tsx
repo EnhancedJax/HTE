@@ -294,9 +294,6 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
           const finalNodes = payloadToFlowNodes(finalData.nodes);
           const finalEdges = payloadToFlowEdges(finalData.edges);
           applyExpansionFrame(finalNodes, finalEdges);
-          if (finalNodes.length > 0) {
-            setFocusNodeId(finalNodes[0].id);
-          }
         } else {
           const data = await fetchExpandSubtree(
             parentId,
@@ -308,9 +305,6 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
           const newFlowEdges = payloadToFlowEdges(data.edges);
 
           applyExpansionFrame(newFlowNodes, newFlowEdges);
-          if (newFlowNodes.length > 0) {
-            setFocusNodeId(newFlowNodes[0].id);
-          }
         }
       } catch {
         // Revert temporary skeleton children when expansion fails.
@@ -330,16 +324,6 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
 
   const onNodeClick: NodeMouseHandler<Node<TreeNodeData>> = useCallback(
     async (_event, node) => {
-      const shouldAutoDiveDeep =
-        pipelineMode === "education" &&
-        Number(node.data?.level ?? 1) >= 2 &&
-        !edges.some((edge) => edge.source === node.id) &&
-        !diveDeepLoadingRef.current;
-
-      if (shouldAutoDiveDeep) {
-        await expandNode(node);
-      }
-
       setSelectedNode(node);
       if (reactFlow.viewportInitialized) {
         reactFlow.fitView({
@@ -349,6 +333,16 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
           },
           duration: 400,
         });
+      }
+
+      const shouldAutoDiveDeep =
+        pipelineMode === "education" &&
+        Number(node.data?.level ?? 1) >= 2 &&
+        !edges.some((edge) => edge.source === node.id) &&
+        !diveDeepLoadingRef.current;
+
+      if (shouldAutoDiveDeep) {
+        await expandNode(node);
       }
     },
     [

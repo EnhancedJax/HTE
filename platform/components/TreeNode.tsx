@@ -59,14 +59,13 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
 
   const baseClass =
     "tree-node-in relative px-4 py-2.5 rounded-lg border-2 min-w-[100px] font-medium transition-all duration-200";
-  const levelClass =
-    isRoot
-      ? level1Styles
-      : isColoredBranchNode
-        ? "border-current"
-        : level === 2
-          ? "bg-secondary text-secondary-foreground border-secondary"
-          : "bg-muted text-muted-foreground border-muted";
+  const levelClass = isRoot
+    ? level1Styles
+    : isColoredBranchNode
+      ? "border-current"
+      : level === 2
+        ? "bg-secondary text-secondary-foreground border-secondary"
+        : "bg-muted text-muted-foreground border-muted";
   const selectedClass = selected
     ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
     : "";
@@ -103,7 +102,7 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
           <p className="text-base leading-snug wrap-break-word">{label}</p>
           {summary && (
             <p className="mt-1 text-xs leading-relaxed wrap-break-word opacity-90">
-              {renderSummaryWithHighlights(summary, "underscore")}
+              {renderSummaryWithHighlights(summary)}
             </p>
           )}
         </div>
