@@ -40,8 +40,10 @@ void main() {
     d += sin(uv.y * i + a);
   }
   d += uTime * 0.5 * uSpeed;
-  vec3 col = vec3(cos(uv * vec2(d, a)) * 0.6 + 0.4, cos(a + d) * 0.5 + 0.5);
-  col = cos(col * cos(vec3(d, a, 2.5)) * 0.5 + 0.5) * uColor;
+  vec3 base = vec3(cos(uv * vec2(d, a)) * 0.6 + 0.4, cos(a + d) * 0.5 + 0.5);
+  base = cos(base * cos(vec3(d, a, 2.5)) * 0.5 + 0.5);
+  float mono = dot(base, vec3(0.299, 0.587, 0.114));
+  vec3 col = vec3(mono) * uColor;
   gl_FragColor = vec4(col, 1.0);
 }
 `

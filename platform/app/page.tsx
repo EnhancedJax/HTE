@@ -3,6 +3,7 @@
 import { AnimatedGroup, AnimatedGroupProps } from "@/components/AnimatedGroup";
 import { GraphTree } from "@/components/GraphTree";
 import { AnimatedShinyButton } from "@/components/ui/animated-shiny-button";
+import Novatrix from "@/components/ui/novatrix-background";
 import { useQuery, type PipelineMode } from "@/lib/query-context";
 import {
   ArrowCounterClockwiseIcon,
@@ -10,6 +11,7 @@ import {
   MagnifyingGlassIcon,
   RocketLaunchIcon,
 } from "@phosphor-icons/react";
+import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr";
 import "@xyflow/react/dist/style.css";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useState } from "react";
@@ -67,6 +69,16 @@ export default function Page() {
     <main
       className={`w-full flex flex-col bg-background overflow-hidden ${hasQuery ? "flex-1 min-h-0" : "min-h-full"}`}
     >
+      {!hasQuery && (
+        <div className="absolute inset-0 top-0 left-0 right-0 bottom-0">
+          <Novatrix
+            color={[0.15, 0.15, 0.15]}
+            amplitude={0.1}
+            mouseReact={true}
+            speed={1.0}
+          />
+        </div>
+      )}
       <motion.header
         layout
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -78,10 +90,25 @@ export default function Page() {
       >
         {!hasQuery && (
           <AnimatedGroup variants={variants}>
-            <h1 className="text-2xl font-bold mb-2 text-center">
-              Knowledge Tree Explorer
-            </h1>
-            <p className="text-sm text-muted-foreground mb-8 text-center">
+            <div className="relative flex flex-col items-center">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-6 z-0 opacity-80"
+                style={{
+                  WebkitMaskImage:
+                    "linear-gradient(to bottom, black 20%, transparent 65%)",
+                  maskImage:
+                    "linear-gradient(to bottom, black 20%, transparent 65%)",
+                }}
+              >
+                {/* Faded out icon, choose something tree/knowledge themed if using your own icon library */}
+                <LinuxLogoIcon className="w-28 h-28 text-foreground" />
+              </span>
+              <h1 className="text-3xl font-bold mb-2 text-center relative z-10">
+                Knowledge Tree Explorer
+              </h1>
+            </div>
+            <p className="text-sm text-muted-foreground mb-10 text-center">
               Dive deeper, learn more.
             </p>
           </AnimatedGroup>
