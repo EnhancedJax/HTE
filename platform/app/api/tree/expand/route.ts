@@ -1,4 +1,5 @@
 import type { TreeExpandResponse } from "@/lib/schemas/tree";
+import { generateExpandSubtreeWithLangChain } from "@/lib/ai/tree-generator";
 import { NextRequest, NextResponse } from "next/server";
 
 /** Mock subtopics for "Dive deep" expansion. Key by parent node id suffix for variety. */
@@ -109,9 +110,15 @@ function pickSubtree(parentId: string): { label: string; summary: string }[] {
  * Returns new nodes and edges for a subtree under the given node (for "Dive deep" on leaves).
  */
 export async function POST(request: NextRequest) {
-  let body: { nodeId?: string; query?: string };
+  let body: {
+    nodeId?: string;
+    nodeLabel?: string;
+    query?: string;
+    level?: 2 | 3;
+    count?: number;
+  };
   try {
-    body = (await request.json()) as { nodeId?: string; query?: string };
+    body = (await request.json()) as typeof body;
   } catch {
     return NextResponse.json(
       { error: "Invalid JSON body" },
@@ -127,24 +134,36 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const subtopics = pickSubtree(nodeId);
-  const nodes = subtopics.map((s, i) => ({
-    id: `${nodeId}-sub-${i + 1}`,
-    type: "treeNode",
-    data: {
-      label: s.label,
-      level: 3 as const,
-      summary: s.summary,
-      metadata: { parent: nodeId, expanded: "true" },
-    },
-  }));
+  try {
+    const response = await generateExpandSubtreeWithLangChain({
+      nodeId,
+      nodeLabel: body?.nodeLabel,
+      query: body?.query,
+      level: body?.level,
+      count: body?.count,
+    });
+    return NextResponse.json(response);
+  } catch {
+    // Fallback: mock expansion so "Dive deep" still works without LLM config.
+    const subtopics = pickSubtree(nodeId);
+    const nodes = subtopics.map((s, i) => ({
+      id: `${nodeId}-sub-${i + 1}`,
+      type: "treeNode",
+      data: {
+        label: s.label,
+        level: 3 as const,
+        summary: s.summary,
+        metadata: { parent: nodeId, expanded: "true" },
+      },
+    }));
 
-  const edges = subtopics.map((_, i) => ({
-    id: `e-${nodeId}-sub-${i + 1}`,
-    source: nodeId,
-    target: `${nodeId}-sub-${i + 1}`,
-  }));
+    const edges = subtopics.map((_, i) => ({
+      id: `e-${nodeId}-sub-${i + 1}`,
+      source: nodeId,
+      target: `${nodeId}-sub-${i + 1}`,
+    }));
 
-  const response: TreeExpandResponse = { nodes, edges };
-  return NextResponse.json(response);
+    const response: TreeExpandResponse = { nodes, edges };
+    return NextResponse.json(response);
+  }
 }
