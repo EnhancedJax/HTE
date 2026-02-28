@@ -12,7 +12,7 @@ const LAYOUT_OPTIONS: TreeLayoutOptions = {
   rootId: "root",
   // nodeWidth: 150,
   // nodeHeight: 50,
-  spacingX: 220,
+  spacingX: 300,
   spacingY: 120,
   originX: 80,
   originY: 40,

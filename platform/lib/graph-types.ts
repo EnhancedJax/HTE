@@ -11,5 +11,3 @@ export type TreeNodeData = TreeNodeDataPayload & Record<string, unknown>;
 export const TREE_NODE_SOURCE_HANDLE_ID = "source";
 /** Handle id for the target (incoming) connection; must match edge targetHandle. */
 export const TREE_NODE_TARGET_HANDLE_ID = "target";
-/** Class for the drag handle element; node dragHandle option must match so edges originate from handles. */
-export const TREE_NODE_DRAG_HANDLE_CLASS = "tree-node-drag-handle";

@@ -1,10 +1,9 @@
 "use client";
 
 import {
-  type TreeNodeData,
-  TREE_NODE_DRAG_HANDLE_CLASS,
   TREE_NODE_SOURCE_HANDLE_ID,
   TREE_NODE_TARGET_HANDLE_ID,
+  type TreeNodeData,
 } from "@/lib/graph-types";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
@@ -25,40 +24,30 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
   const delay = (level - 1) * STAGGER_MS;
 
   return (
-    <div
-      className={`
-        tree-node-in relative flex min-w-[100px] items-stretch rounded-lg border-2
+    <div>
+      <div
+        className={`
+        tree-node-in relative px-4 py-2.5 rounded-lg border-2 min-w-[100px] text-center font-medium
         transition-all duration-200
         ${levelStyles[level]}
         ${selected ? "ring-2 ring-ring ring-offset-2 ring-offset-background" : ""}
       `}
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      {/* Target (incoming) drag handle – edges attach here */}
-      <div
-        className={`${TREE_NODE_DRAG_HANDLE_CLASS} flex w-5 shrink-0 items-center justify-center rounded-l-md border-r border-inherit/30`}
-        title="Drag or connect"
+        style={{ animationDelay: `${delay}ms` }}
       >
-        <Handle
-          type="target"
-          position={Position.Left}
-          id={TREE_NODE_TARGET_HANDLE_ID}
-        />
-      </div>
-      <div className="nodrag flex flex-1 items-center justify-center px-3 py-2.5 font-medium">
         <span className="text-lg">{label}</span>
       </div>
-      {/* Source (outgoing) drag handle – edges originate here */}
-      <div
-        className={`${TREE_NODE_DRAG_HANDLE_CLASS} flex w-5 shrink-0 items-center justify-center rounded-r-md border-l border-inherit/30`}
-        title="Drag or connect"
-      >
-        <Handle
-          type="source"
-          position={Position.Right}
-          id={TREE_NODE_SOURCE_HANDLE_ID}
-        />
-      </div>
+      <Handle
+        type="target"
+        // className="top-1/2! left-0! w-0! h-0! border-0! opacity-0! pointer-events-none!"
+        position={Position.Left}
+        id={TREE_NODE_TARGET_HANDLE_ID}
+      />
+      <Handle
+        type="source"
+        // className="top-1/2! left-0! w-0! h-0! border-0! opacity-0! pointer-events-none!"
+        position={Position.Right}
+        id={TREE_NODE_SOURCE_HANDLE_ID}
+      />
     </div>
   );
 }

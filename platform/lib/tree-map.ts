@@ -1,11 +1,10 @@
-import type { Edge, Node } from "@xyflow/react";
 import {
   type TreeNodeData,
-  TREE_NODE_DRAG_HANDLE_CLASS,
   TREE_NODE_SOURCE_HANDLE_ID,
   TREE_NODE_TARGET_HANDLE_ID,
 } from "@/lib/graph-types";
 import type { TreeDataResponse } from "@/lib/schemas/tree";
+import type { Edge, Node } from "@xyflow/react";
 
 const PLACEHOLDER_POSITION = { x: 0, y: 0 };
 
@@ -22,7 +21,6 @@ export function payloadToFlowNodes(
     type: "treeNode",
     position: PLACEHOLDER_POSITION,
     data: n.data as TreeNodeData,
-    dragHandle: `.${TREE_NODE_DRAG_HANDLE_CLASS}`,
   }));
 }
 

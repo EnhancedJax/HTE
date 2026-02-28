@@ -111,6 +111,7 @@ function GraphTreeFlow({ initialNodes, initialEdges }: GraphTreeFlowProps) {
           fitViewOptions={{ padding: 0.2 }}
           minZoom={0.2}
           maxZoom={1.5}
+          nodesDraggable
           nodesConnectable={false}
           elementsSelectable
           proOptions={{ hideAttribution: true }}
