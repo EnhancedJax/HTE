@@ -14,6 +14,48 @@ interface NodeCardProps {
   diveDeepLoading?: boolean;
 }
 
+// Utility to render summary with underscores _highlighted_ as primary color
+export function renderSummaryWithHighlights(
+  summary: string,
+  method: "underscore" | "color" = "color",
+) {
+  // Split on underscores, keep underscores,
+  // e.g. "A _keyword_ is _important_." → ["A ", "keyword", " is ", "important", "."]
+  const parts: { text: string; highlighted: boolean }[] = [];
+  let lastIndex = 0;
+  let inHighlight = false;
+  let buffer = "";
+  for (let i = 0; i < summary.length; ++i) {
+    if (summary[i] === "_") {
+      if (inHighlight) {
+        // End highlight
+        parts.push({ text: buffer, highlighted: true });
+        buffer = "";
+      } else {
+        // Start highlight
+        if (buffer) parts.push({ text: buffer, highlighted: false });
+        buffer = "";
+      }
+      inHighlight = !inHighlight;
+    } else {
+      buffer += summary[i];
+    }
+  }
+  if (buffer) parts.push({ text: buffer, highlighted: inHighlight });
+  return parts.map((part, i) =>
+    part.highlighted ? (
+      <span
+        key={i}
+        className={` ${method === "underscore" ? "px-1 py-0.5 bg-foreground/50 rounded-md" : "text-primary"}`}
+      >
+        {part.text}
+      </span>
+    ) : (
+      <span key={i}>{part.text}</span>
+    ),
+  );
+}
+
 export function NodeCard({
   nodeId,
   data,
@@ -23,9 +65,6 @@ export function NodeCard({
   diveDeepLoading,
 }: NodeCardProps) {
   const summary = data.summary ?? data.description;
-  const keywords = Array.isArray(data.keywords)
-    ? data.keywords.filter((k): k is string => typeof k === "string" && k.trim().length > 0)
-    : [];
   const images = data.images ?? [];
   const relatedLinks = data.relatedLinks ?? [];
 
@@ -73,25 +112,8 @@ export function NodeCard({
               Summary
             </p>
             <p className="text-sm text-foreground/90 leading-relaxed">
-              {summary}
+              {renderSummaryWithHighlights(summary)}
             </p>
-          </div>
-        )}
-        {keywords.length > 0 && (
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-              Highlighted Keywords
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {keywords.slice(0, 4).map((keyword) => (
-                <span
-                  key={keyword}
-                  className="rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
-                >
-                  {keyword}
-                </span>
-              ))}
-            </div>
           </div>
         )}
         {images.length > 0 && (

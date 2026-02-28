@@ -1,7 +1,11 @@
 "use client";
 
 import { fetchTreeData, streamEducationTreeData } from "@/lib/api/tree";
-import type { TreeNodeData } from "@/lib/graph-types";
+import {
+  TREE_NODE_COLUMN_GAP_PX,
+  TREE_NODE_MAX_WIDTH_PX,
+  type TreeNodeData,
+} from "@/lib/graph-types";
 import type { PipelineMode } from "@/lib/query-context";
 import type { TreeLayoutOptions } from "@/lib/radial-tree-layout";
 import { horizontalTreeLayout } from "@/lib/radial-tree-layout";
@@ -15,8 +19,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export const LAYOUT_OPTIONS: TreeLayoutOptions = {
   rootId: "root",
-  spacingX: 300,
-  spacingY: 120,
+  spacingX: TREE_NODE_MAX_WIDTH_PX + TREE_NODE_COLUMN_GAP_PX,
+  spacingY: 200,
   originX: 80,
   originY: 40,
 };
@@ -38,7 +42,10 @@ export interface UseTreeDataResult {
  * @param query — optional user search query (high-level topic) for knowledge research.
  * @param mode — pipeline mode: "research" (default) or "education" (Gemini-powered).
  */
-export function useTreeData(query?: string, mode: PipelineMode = "research"): UseTreeDataResult {
+export function useTreeData(
+  query?: string,
+  mode: PipelineMode = "research",
+): UseTreeDataResult {
   const [nodes, setNodes] = useState<Node<TreeNodeData>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [status, setStatus] = useState<TreeDataStatus>("idle");
@@ -76,7 +83,9 @@ export function useTreeData(query?: string, mode: PipelineMode = "research"): Us
               label: "Generating...",
               level: 2,
               metadata: { parent: "root", skeleton: "true" },
-            } as Awaited<ReturnType<typeof fetchTreeData>>["nodes"][number]["data"],
+            } as Awaited<
+              ReturnType<typeof fetchTreeData>
+            >["nodes"][number]["data"],
           }),
         );
         applyData({

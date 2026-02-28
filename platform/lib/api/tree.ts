@@ -233,30 +233,19 @@ function normalizeExpandPayload(raw: unknown, parentId: string): TreeExpandRespo
     });
   }
   const uniqueNodes = uniqById(nodes);
-  const nodeIds = new Set<string>([parentId, ...uniqueNodes.map((node) => node.id)]);
+  // Keep expansion topology stable: every returned node is a direct child of the clicked parent.
+  // This avoids malformed/partial model edges causing disconnected nodes in React Flow layout.
+  const edges: TreeExpandResponse["edges"] = uniqueNodes.map((node) => ({
+    id: `${parentId}--${node.id}`,
+    source: parentId,
+    target: node.id,
+  }));
 
-  let edges: TreeExpandResponse["edges"] = edgeValues
-    .map((value) => {
-      const edgeObj = asRecord(value);
-      if (!edgeObj) return null;
-      const id = asString(edgeObj.id);
-      const source = asString(edgeObj.source);
-      const target = asString(edgeObj.target);
-      if (!id || !source || !target) return null;
-      if (!nodeIds.has(source) || !nodeIds.has(target)) return null;
-      return { id, source, target };
-    })
-    .filter((edge): edge is TreeExpandResponse["edges"][number] => edge !== null);
+  // Preserve only nodes reachable by those direct parent edges.
+  const connectedIds = new Set(edges.map((edge) => edge.target));
+  const connectedNodes = uniqueNodes.filter((node) => connectedIds.has(node.id));
 
-  if (edges.length === 0) {
-    edges = uniqueNodes.map((node) => ({
-      id: `${parentId}--${node.id}`,
-      source: parentId,
-      target: node.id,
-    }));
-  }
-
-  return { nodes: uniqueNodes, edges: uniqById(edges) };
+  return { nodes: connectedNodes, edges: uniqById(edges) };
 }
 
 function tryParseJsonCandidate(candidate: string): unknown | null {
@@ -308,6 +297,17 @@ function closeOpenStructures(source: string): string {
   return completed;
 }
 
+function stripDanglingJsonTail(source: string): string {
+  let out = source;
+  // Remove unfinished key-value pairs at the tail, e.g. `"summary":` or `,"summary":`
+  out = out.replace(/,?\s*"[^"]*"\s*:\s*$/g, "");
+  // Remove trailing comma at the tail if present
+  out = out.replace(/,\s*$/g, "");
+  // Remove unterminated escaped backslash tail
+  out = out.replace(/\\$/g, "");
+  return out;
+}
+
 function coerceJsonFromStream(rawText: string): unknown | null {
   const direct = tryParseJsonCandidate(rawText);
   if (direct) return direct;
@@ -320,7 +320,23 @@ function coerceJsonFromStream(rawText: string): unknown | null {
 
   const withoutTrailingCommas = body.replace(/,\s*([}\]])/g, "$1");
   const fixedStructure = closeOpenStructures(withoutTrailingCommas);
-  return tryParseJsonCandidate(fixedStructure);
+  const parsedFixed = tryParseJsonCandidate(fixedStructure);
+  if (parsedFixed) return parsedFixed;
+
+  // Recovery for mid-stream partial fields (often long `summary` strings):
+  // progressively trim an incomplete tail and re-close structures so already
+  // completed nodes can still be parsed and rendered incrementally.
+  const minLength = Math.max(0, withoutTrailingCommas.length - 8000);
+  for (let i = withoutTrailingCommas.length - 1; i >= minLength; i -= 1) {
+    const partial = stripDanglingJsonTail(
+      withoutTrailingCommas.slice(0, i).replace(/,?\s*$/, ""),
+    );
+    const recovered = closeOpenStructures(partial);
+    const parsed = tryParseJsonCandidate(recovered);
+    if (parsed) return parsed;
+  }
+
+  return null;
 }
 
 /**

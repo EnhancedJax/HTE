@@ -2,16 +2,17 @@
 
 import {
   NODE_PALETTE,
+  TREE_NODE_MAX_WIDTH_PX,
   TREE_NODE_SOURCE_HANDLE_ID,
   TREE_NODE_TARGET_HANDLE_ID,
   type TreeNodeData,
 } from "@/lib/graph-types";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { renderSummaryWithHighlights } from "./NodeCard";
 
 export type TreeNodeType = Node<TreeNodeData, "treeNode">;
 
-const level1Styles =
-  "bg-white text-black border-border shadow-lg scale-105";
+const level1Styles = "bg-white text-black border-border shadow-lg scale-105";
 
 /** Stagger delay (ms) per tree level so nodes fade in from center outward. */
 const STAGGER_MS = 60;
@@ -34,6 +35,11 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
       : null;
   const isSkeleton = metadata?.skeleton === "true";
   const label = isSkeleton ? "Generating..." : (data?.label ?? "Node");
+  const summary =
+    !isSkeleton &&
+    (typeof data?.summary === "string" || typeof data?.description === "string")
+      ? ((data.summary ?? data.description) as string)
+      : undefined;
   const branchIndex =
     typeof data?.branchIndex === "number" ? data.branchIndex : undefined;
   const delay = (level - 1) * STAGGER_MS;
@@ -47,7 +53,7 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
   const isDeeperLevel = level >= 3 && color;
 
   const baseClass =
-    "tree-node-in relative px-4 py-2.5 rounded-lg border-2 min-w-[100px] text-center font-medium transition-all duration-200";
+    "tree-node-in relative px-4 py-2.5 rounded-lg border-2 min-w-[100px] font-medium transition-all duration-200";
   const levelClass =
     level === 1
       ? level1Styles
@@ -65,17 +71,18 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
 
   const style: React.CSSProperties = {
     animationDelay: `${delay}ms`,
+    maxWidth: `${TREE_NODE_MAX_WIDTH_PX}px`,
     ...(!isSkeleton &&
       isLevel2 && {
-      backgroundColor: color,
-      color: "#1a1a1a",
-      borderColor: color,
+        backgroundColor: color,
+        color: "#1a1a1a",
+        borderColor: color,
       }),
     ...(!isSkeleton &&
       isDeeperLevel && {
-      backgroundColor: hexToRgba(color, L3_BG_OPACITY),
-      color: color,
-      borderColor: color,
+        backgroundColor: hexToRgba(color, L3_BG_OPACITY),
+        color: color,
+        borderColor: color,
       }),
   };
 
@@ -85,7 +92,14 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
         className={`${baseClass} ${levelClass} ${selectedClass} ${skeletonClass}`}
         style={style}
       >
-        <span className="text-lg">{label}</span>
+        <div className="text-left">
+          <p className="text-base leading-snug wrap-break-word">{label}</p>
+          {summary && (
+            <p className="mt-1 text-xs leading-relaxed wrap-break-word opacity-90">
+              {renderSummaryWithHighlights(summary, "underscore")}
+            </p>
+          )}
+        </div>
       </div>
       <Handle
         type="target"
