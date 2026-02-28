@@ -55,13 +55,15 @@ export async function upsertChunks(embedded: EmbeddedChunk[]): Promise<void> {
   const pc = new Pinecone({ apiKey });
   const index = pc.index(indexName);
 
-  // Pinecone metadata: only string, number, boolean, or string[].
+  // Pinecone metadata: only string, number, boolean, or string[]. Store text for retrieval.
+  const MAX_METADATA_TEXT = 32000; // safe for Pinecone metadata limit
   const toRecord = (c: EmbeddedChunk) => ({
     id: c.id,
     values: c.embedding,
     metadata: {
       doc_id: c.metadata.doc_id,
       chunk_index: c.metadata.chunk_index,
+      text: c.text.length > MAX_METADATA_TEXT ? c.text.slice(0, MAX_METADATA_TEXT) : c.text,
       ...(c.metadata.title != null && { title: String(c.metadata.title) }),
       ...(c.metadata.url != null && { url: String(c.metadata.url) }),
       ...(c.metadata.source_type != null && { source_type: String(c.metadata.source_type) }),

@@ -73,6 +73,18 @@ async function hfEmbedTexts(
 }
 
 /**
+ * Embed a single query string (same model as chunks). Use for retrieval.
+ */
+export async function embedQuery(query: string): Promise<number[]> {
+  const config = getConfigFromEnv();
+  if (!config) {
+    throw new Error("Missing HF_TOKEN or HUGGINGFACE_TOKEN");
+  }
+  const vectors = await hfEmbedTexts([query], config);
+  return vectors[0]!;
+}
+
+/**
  * Embed chunks in batches and return embedded chunks.
  */
 export async function embedChunks(chunks: Chunk[]): Promise<EmbeddedChunk[]> {
