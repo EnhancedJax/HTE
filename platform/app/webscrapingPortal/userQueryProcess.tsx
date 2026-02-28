@@ -1,4 +1,3 @@
-import queryDeepSeek from "./deepseekPortal";
 import queryExa from "./exaPortal";
 import queryMiniMax from "./minimaxPortal";
 
@@ -55,7 +54,11 @@ export default async function processUserQuery(query: string) {
                 answers.push(temp_result);
             };
             results.Results[topic][subquestion] = answers;
+
+            break;
         }
+
+        break;
     }
 
     // console.log(results);

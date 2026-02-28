@@ -2,10 +2,10 @@ import type {
   TreeDataResponse,
   TreeEdgePayload,
   TreeExpandResponse,
+  TreeLevel,
   TreeNodePayload,
 } from "@/lib/schemas/tree";
-import { HumanMessage } from "@langchain/core/messages";
-import { createChatModelFromEnv } from "./llm";
+import queryMiniMax from "@/app/webscrapingPortal/minimaxPortal";
 
 function extractJsonObject(text: string): unknown {
   const start = text.indexOf("{");
@@ -64,7 +64,7 @@ function normalizeTreeDataResponse(
         return {
           id,
           type: asString(n.type) ?? "treeNode",
-          data: data as TreeNodePayload["data"],
+          data: { ...(data as unknown as TreeNodePayload["data"]), label, level: level as TreeLevel },
         };
       })
       .filter(Boolean) as TreeNodePayload[],
@@ -84,7 +84,26 @@ function normalizeTreeDataResponse(
   );
 
   const nodeIds = new Set(nodes.map((n) => n.id));
-  const safeEdges = filterEdgesToExistingNodes(edges, nodeIds);
+  let safeEdges = filterEdgesToExistingNodes(edges, nodeIds);
+
+  // Fallback: if the LLM returned no edges, infer them from node levels.
+  // Distribute level-3 nodes evenly (in order) across level-2 nodes.
+  if (safeEdges.length === 0) {
+    const level2 = nodes.filter((n) => n.data.level === 2);
+    const level3 = nodes.filter((n) => n.data.level === 3);
+    const inferred: TreeEdgePayload[] = [];
+    for (const n2 of level2) {
+      inferred.push({ id: `root--${n2.id}`, source: "root", target: n2.id });
+    }
+    const chunkSize = level2.length > 0 ? Math.ceil(level3.length / level2.length) : 0;
+    level3.forEach((n3, i) => {
+      const parent = level2[Math.floor(i / chunkSize)];
+      if (parent) {
+        inferred.push({ id: `${parent.id}--${n3.id}`, source: parent.id, target: n3.id });
+      }
+    });
+    safeEdges = inferred;
+  }
 
   // Ensure a stable root exists and matches the query.
   const hasRoot = nodeIds.has("root");
@@ -108,7 +127,7 @@ function normalizeTreeDataResponse(
           ? {
               ...n,
               type: "treeNode",
-              data: { ...n.data, label: query, level: 1 },
+              data: { ...n.data, label: query, level: 1 as TreeLevel },
             }
           : n,
       )
@@ -142,7 +161,7 @@ function normalizeTreeExpandResponse(raw: unknown): TreeExpandResponse {
         return {
           id,
           type: asString(n.type) ?? "treeNode",
-          data: data as TreeNodePayload["data"],
+          data: { ...(data as unknown as TreeNodePayload["data"]), label, level: level as TreeLevel },
         };
       })
       .filter(Boolean) as TreeNodePayload[],
@@ -169,36 +188,53 @@ function normalizeTreeExpandResponse(raw: unknown): TreeExpandResponse {
 
 export interface GenerateTreeOptions {
   query: string;
+  /** Optional RAG context to ground the tree with real research findings. */
+  context?: string;
 }
 
 export async function generateTreeDataWithLangChain(
   opts: GenerateTreeOptions,
 ): Promise<TreeDataResponse> {
   const query = opts.query.trim() || "Untitled Topic";
-  const chat = createChatModelFromEnv();
-  if (!chat) {
-    throw new Error("Missing LLM config (set LLM_API_KEY or OPENAI_API_KEY)");
-  }
+
+  const contextSection = opts.context
+    ? [
+        "Research context (retrieved via RAG — use this to ground the tree):",
+        opts.context,
+        "",
+      ].join("\n")
+    : "";
 
   const prompt = [
     "You generate a 3-level knowledge tree for a research UI.",
     "Return ONLY valid JSON (no markdown, no code fences, no commentary).",
     "",
-    "Constraints:",
-    '- Root node MUST be id "root", type "treeNode", data.level = 1, data.label = the query string.',
-    "- Include exactly 3 level-2 nodes (level=2), each connected from root via an edge.",
-    "- Include 2 level-3 nodes (level=3) under EACH level-2 node (total 6), connected via edges.",
+    contextSection,
+    "Node constraints:",
+    '- Root node: id="root", type="treeNode", data.level=1, data.label=the query string.',
+    "- Exactly 3 level-2 nodes (data.level=2).",
+    "- Exactly 2 level-3 nodes per level-2 node (6 total, data.level=3).",
     "- Each node data must include: label (string), level (1|2|3), summary (1-2 sentences).",
-    "- IDs must be unique, stable, URL-safe (letters/numbers/dashes).",
+    "- IDs must be unique, URL-safe (letters/numbers/dashes only).",
+    "",
+    "Edge constraints — THIS IS REQUIRED:",
+    "- The edges array MUST NOT be empty.",
+    "- Create one edge from root to each level-2 node (3 edges).",
+    "- Create one edge from each level-2 node to each of its level-3 children (6 edges).",
+    "- Every edge must have: id (string), source (parent node id), target (child node id).",
+    '- Edge id format: "<source>--<target>"',
+    "",
+    "Example edges for a tree with root → node-a → node-a-1:",
+    '  { "id": "root--node-a", "source": "root", "target": "node-a" }',
+    '  { "id": "node-a--node-a-1", "source": "node-a", "target": "node-a-1" }',
     "",
     "Output shape:",
-    '{ "rootSummary": string, "nodes": TreeNodePayload[], "edges": TreeEdgePayload[] }',
+    '{ "rootSummary": string, "nodes": Array<{ id, type, data: { label, level, summary } }>, "edges": Array<{ id, source, target }> }',
     "",
     `Query: ${JSON.stringify(query)}`,
   ].join("\n");
 
-  const res = await chat.invoke([new HumanMessage(prompt)]);
-  const content = typeof res.content === "string" ? res.content : String(res.content);
+  const content = await queryMiniMax(prompt);
   const parsed = extractJsonObject(content);
   return normalizeTreeDataResponse(query, parsed);
 }
@@ -227,11 +263,6 @@ export async function generateExpandSubtreeWithLangChain(
   const level = opts.level ?? 3;
   const count = Math.max(2, Math.min(5, opts.count ?? 3));
 
-  const chat = createChatModelFromEnv();
-  if (!chat) {
-    throw new Error("Missing LLM config (set LLM_API_KEY or OPENAI_API_KEY)");
-  }
-
   const prompt = [
     "You generate a small subtree expansion for a knowledge tree UI.",
     "Return ONLY valid JSON (no markdown, no code fences, no commentary).",
@@ -249,8 +280,7 @@ export async function generateExpandSubtreeWithLangChain(
     '{ "nodes": TreeNodePayload[], "edges": TreeEdgePayload[] }',
   ].join("\n");
 
-  const res = await chat.invoke([new HumanMessage(prompt)]);
-  const content = typeof res.content === "string" ? res.content : String(res.content);
+  const content = await queryMiniMax(prompt);
   const parsed = extractJsonObject(content);
   return normalizeTreeExpandResponse(parsed);
 }

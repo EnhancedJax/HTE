@@ -63,9 +63,15 @@ export function useTreeData(query?: string): UseTreeDataResult {
   }, [query]);
 
   useEffect(() => {
+    if (!query) {
+      setStatus("idle");
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- this hook intentionally fetches and updates local state.
     load();
-  }, [load]);
+  }, [load, query]);
 
   return { nodes, edges, status, error, refetch: load };
 }
