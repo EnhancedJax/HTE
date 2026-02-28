@@ -1,5 +1,10 @@
-import { ComponentExample } from "@/components/component-example";
+import { GraphTree } from "@/components/GraphTree";
+import "@xyflow/react/dist/style.css";
 
 export default function Page() {
-  return <ComponentExample />;
+  return (
+    <main className="h-screen w-screen flex flex-col">
+      <GraphTree />
+    </main>
+  );
 }
