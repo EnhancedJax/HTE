@@ -4,7 +4,11 @@ import { fetchTreeData } from "@/lib/api/tree";
 import type { TreeNodeData } from "@/lib/graph-types";
 import type { TreeLayoutOptions } from "@/lib/radial-tree-layout";
 import { horizontalTreeLayout } from "@/lib/radial-tree-layout";
-import { payloadToFlowEdges, payloadToFlowNodes } from "@/lib/tree-map";
+import {
+  enrichNodesWithBranchColors,
+  payloadToFlowEdges,
+  payloadToFlowNodes,
+} from "@/lib/tree-map";
 import type { Edge, Node } from "@xyflow/react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -49,7 +53,7 @@ export function useTreeData(query?: string): UseTreeDataResult {
         flowEdges,
         LAYOUT_OPTIONS,
       );
-      setNodes(layoutedNodes);
+      setNodes(enrichNodesWithBranchColors(layoutedNodes, flowEdges));
       setEdges(flowEdges);
       setStatus("success");
     } catch (err) {

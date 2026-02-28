@@ -18,9 +18,14 @@ import { LAYOUT_OPTIONS, useTreeData } from "@/hooks/useTreeData";
 import { fetchExpandSubtree } from "@/lib/api/tree";
 import type { TreeNodeData } from "@/lib/graph-types";
 import { horizontalTreeLayout } from "@/lib/radial-tree-layout";
-import { payloadToFlowEdges, payloadToFlowNodes } from "@/lib/tree-map";
+import {
+  enrichNodesWithBranchColors,
+  payloadToFlowEdges,
+  payloadToFlowNodes,
+} from "@/lib/tree-map";
 import { NodeCard } from "./NodeCard";
 import { TreeEdge } from "./TreeEdge";
+import { TreeLoading } from "./TreeLoading";
 import { TreeNode } from "./TreeNode";
 
 const nodeTypes = { treeNode: TreeNode };
@@ -40,11 +45,7 @@ function GraphTreeInner({ query }: GraphTreeInnerProps) {
   } = useTreeData(query);
 
   if (status === "loading" || status === "idle") {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">Loading tree…</p>
-      </div>
-    );
+    return <TreeLoading />;
   }
 
   if (status === "error") {
@@ -104,13 +105,14 @@ function GraphTreeFlow({
       const newFlowEdges = payloadToFlowEdges(data.edges);
       const mergedEdges = [...edges, ...newFlowEdges];
 
-      setNodes((prev) =>
-        horizontalTreeLayout(
+      setNodes((prev) => {
+        const merged = horizontalTreeLayout(
           [...prev, ...newFlowNodes],
           mergedEdges,
           LAYOUT_OPTIONS,
-        ),
-      );
+        );
+        return enrichNodesWithBranchColors(merged, mergedEdges);
+      });
       setEdges(mergedEdges);
     } catch {
       // Could surface error in UI; for now no-op
