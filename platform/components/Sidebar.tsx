@@ -53,6 +53,49 @@ interface SidebarTreeItemProps {
 
 type SidebarView = "tree" | "chat";
 
+interface NodeSummaryUpdate {
+  nodeId: string;
+  summary: string;
+  keywords?: string[];
+}
+
+function extractNodeSummaryUpdatesFromParts(parts: unknown[]): NodeSummaryUpdate[] {
+  const updates: NodeSummaryUpdate[] = [];
+
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    const partRecord = part as Record<string, unknown>;
+    if (partRecord.type !== "tool-update_node_summary") continue;
+    if (partRecord.state !== "output-available") continue;
+
+    const output =
+      partRecord.output && typeof partRecord.output === "object"
+        ? (partRecord.output as Record<string, unknown>)
+        : null;
+    if (!output) continue;
+    if (output.updated !== true) continue;
+
+    const nodeId = typeof output.nodeId === "string" ? output.nodeId.trim() : "";
+    const summary = typeof output.summary === "string" ? output.summary.trim() : "";
+    if (!nodeId || !summary) continue;
+
+    const keywords = Array.isArray(output.keywords)
+      ? output.keywords
+          .filter((keyword): keyword is string => typeof keyword === "string")
+          .map((keyword) => keyword.trim())
+          .filter((keyword) => keyword.length > 0)
+      : undefined;
+
+    updates.push({
+      nodeId,
+      summary,
+      ...(keywords ? { keywords } : {}),
+    });
+  }
+
+  return updates;
+}
+
 function extractAssistantContent(text: string) {
   const thinkStartTag = "<think>";
   const thinkEndTag = "</think>";
@@ -141,8 +184,15 @@ function SidebarTreeItem({ item, depth, onSelectNode }: SidebarTreeItemProps) {
 
 export function Sidebar({ open, className }: SidebarProps) {
   const { query } = useQuery();
-  const { treeRoot, status, setFocusNodeId, selectedNode, selectedNodes } =
-    useGraphTreeContext();
+  const {
+    treeRoot,
+    status,
+    setFocusNodeId,
+    selectedNode,
+    selectedNodes,
+    updateNodeSummaries,
+    pipelineMode,
+  } = useGraphTreeContext();
   const [activeView, setActiveView] = useState<SidebarView>("tree");
   const [chatInput, setChatInput] = useState("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -183,7 +233,8 @@ export function Sidebar({ open, className }: SidebarProps) {
         ),
     );
     chatBodyRef.current.topicQuery = query ?? "";
-  }, [treeRoot, selectedNode, selectedNodes, query]);
+    chatBodyRef.current.pipelineMode = pipelineMode;
+  }, [treeRoot, selectedNode, selectedNodes, query, pipelineMode]);
 
   const {
     messages,
@@ -194,6 +245,12 @@ export function Sidebar({ open, className }: SidebarProps) {
       api: "/api/chat",
       body: chatBodyRef.current,
     }),
+    onFinish: ({ message }) => {
+      const updates = extractNodeSummaryUpdatesFromParts(message.parts);
+      if (updates.length > 0) {
+        updateNodeSummaries(updates);
+      }
+    },
   });
 
   useEffect(() => {
@@ -222,6 +279,18 @@ export function Sidebar({ open, className }: SidebarProps) {
     }
     sendMessage({ text: value });
     setChatInput("");
+  };
+
+  const handleExpandSelectedWithAi = () => {
+    if (selectedNodes.length === 0 || chatStatus === "streaming") return;
+    const labels = selectedNodes
+      .map((node) => (node.data?.label ? String(node.data.label) : ""))
+      .filter((label) => label.length > 0);
+    const targetText =
+      labels.length > 0 ? labels.map((label) => `"${label}"`).join(", ") : "the selected node(s)";
+    sendMessage({
+      text: `Expand ${targetText} for learning depth and update each selected node summary using the tool.`,
+    });
   };
 
   return (
@@ -437,6 +506,18 @@ export function Sidebar({ open, className }: SidebarProps) {
                         </div>
                       )}
                     </div>
+                    {pipelineMode === "education" && selectedNodes.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleExpandSelectedWithAi}
+                        disabled={chatStatus === "streaming"}
+                        className="mt-2 w-full"
+                      >
+                        Expand selected with AI
+                      </Button>
+                    )}
                     <form
                       onSubmit={handleSendChatMessage}
                       className="mt-2 flex items-center gap-2 border-t border-sidebar-border pt-2"

@@ -35,6 +35,14 @@ interface GraphTreeContextValue {
   setSelectedNodeIds: React.Dispatch<React.SetStateAction<string[]>>;
   /** Materialized selected nodes from current graph state. */
   selectedNodes: Node<TreeNodeData>[];
+  /** Applies assistant-authored summary updates to existing nodes by id. */
+  updateNodeSummaries: (
+    updates: Array<{
+      nodeId: string;
+      summary: string;
+      keywords?: string[];
+    }>,
+  ) => void;
   /** Current pipeline mode for expand calls. */
   pipelineMode: PipelineMode;
 }
@@ -77,6 +85,49 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node<TreeNodeData> | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+
+  const updateNodeSummaries = (
+    updates: Array<{ nodeId: string; summary: string; keywords?: string[] }>,
+  ) => {
+    if (updates.length === 0) return;
+    const updatesByNodeId = new Map<
+      string,
+      { summary: string; keywords?: string[] }
+    >();
+    for (const update of updates) {
+      const nodeId = update.nodeId.trim();
+      const summary = update.summary.trim();
+      if (!nodeId || !summary) continue;
+      const keywords = Array.isArray(update.keywords)
+        ? update.keywords
+            .filter((keyword): keyword is string => typeof keyword === "string")
+            .map((keyword) => keyword.trim())
+            .filter((keyword) => keyword.length > 0)
+            .slice(0, 6)
+        : undefined;
+      updatesByNodeId.set(nodeId, { summary, keywords });
+    }
+    if (updatesByNodeId.size === 0) return;
+
+    setNodes((currentNodes) => {
+      let changed = false;
+      const nextNodes = currentNodes.map((node) => {
+        const update = updatesByNodeId.get(node.id);
+        if (!update) return node;
+
+        const nextData: TreeNodeData = {
+          ...node.data,
+          summary: update.summary,
+          ...(update.keywords ? { keywords: update.keywords } : {}),
+        };
+        const nextNode = { ...node, data: nextData };
+        changed = true;
+        return nextNode;
+      });
+
+      return changed ? nextNodes : currentNodes;
+    });
+  };
 
   useEffect(() => {
     if (status === "success") {
@@ -126,6 +177,7 @@ export function GraphTreeProvider({ children }: GraphTreeProviderProps) {
     selectedNodeIds,
     setSelectedNodeIds,
     selectedNodes,
+    updateNodeSummaries,
     pipelineMode,
   };
 

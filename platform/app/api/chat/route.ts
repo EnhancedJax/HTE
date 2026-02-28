@@ -1,5 +1,6 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
+import { z } from "zod";
 
 export const maxDuration = 30;
 
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
     selectedNodeSummary,
     selectedNodesContext,
     topicQuery,
+    pipelineMode,
   }: {
     messages: UIMessage[];
     treeContextText?: string;
@@ -38,6 +40,7 @@ export async function POST(request: Request) {
     selectedNodeSummary?: string;
     selectedNodesContext?: string;
     topicQuery?: string;
+    pipelineMode?: "research" | "education";
   } = await request.json();
 
   const contextParts: string[] = [];
@@ -75,7 +78,11 @@ export async function POST(request: Request) {
 
   if (selectedNodeItems.length > 1) {
     const selectedNodeList = selectedNodeItems
-      .map((item) => (item.summary ? `- "${item.label}" — ${item.summary}` : `- "${item.label}"`))
+      .map((item) =>
+        item.summary
+          ? `- [id=${item.id}] "${item.label}" — ${item.summary}`
+          : `- [id=${item.id}] "${item.label}"`,
+      )
       .join("\n");
     contextParts.push(
       `The user currently has multiple nodes selected:\n${selectedNodeList}`,
@@ -93,17 +100,87 @@ export async function POST(request: Request) {
     );
   }
 
+  const selectedNodeIdSet = new Set(
+    selectedNodeItems
+      .map((item) => item.id.trim())
+      .filter((nodeId) => nodeId.length > 0),
+  );
+  const selectedNodeIdList = Array.from(selectedNodeIdSet);
+  if (selectedNodeIdList.length > 0) {
+    contextParts.push(
+      `Selected node IDs that can be updated: ${selectedNodeIdList.join(", ")}`,
+    );
+  }
+
   const contextBlock =
     contextParts.length > 0
       ? `\n\n--- CURRENT CONTEXT ---\n${contextParts.join("\n\n")}\n--- END CONTEXT ---`
       : "";
 
-  const system = `You are a concise and practical assistant for a knowledge tree explorer app. Answer questions about the topic, its sub-topics, and the node the user is viewing. Be specific when context is provided.${contextBlock}`;
+  const educationToolInstructions =
+    pipelineMode === "education" && selectedNodeIdList.length > 0
+      ? [
+          "When the user asks to expand, deepen, or improve understanding of selected nodes, call the tool `update_node_summary`.",
+          "Call the tool once per node that should be updated, using only ids from the selected-node list.",
+          "Write the expanded summary in 2-4 concise teaching-oriented sentences.",
+          "After tool calls, briefly explain what was improved.",
+        ].join(" ")
+      : "Do not call tools.";
+  const system = `You are a concise and practical assistant for a knowledge tree explorer app. Answer questions about the topic, its sub-topics, and the node the user is viewing. Be specific when context is provided. ${educationToolInstructions}${contextBlock}`;
+
+  const tools =
+    pipelineMode === "education" && selectedNodeIdList.length > 0
+      ? {
+          update_node_summary: tool({
+            description:
+              "Update one selected node with a richer educational summary.",
+            inputSchema: z.object({
+              nodeId: z
+                .string()
+                .min(1)
+                .describe("ID of a currently selected node to update."),
+              expandedSummary: z
+                .string()
+                .min(20)
+                .describe("Expanded summary text for that node."),
+              keywords: z
+                .array(z.string().min(1))
+                .max(6)
+                .optional()
+                .describe("Optional key terms extracted from the new summary."),
+            }),
+            execute: async ({ nodeId, expandedSummary, keywords }) => {
+              const normalizedNodeId = nodeId.trim();
+              if (!selectedNodeIdSet.has(normalizedNodeId)) {
+                return {
+                  updated: false,
+                  reason: "node-id-not-selected",
+                  nodeId: normalizedNodeId,
+                };
+              }
+
+              return {
+                updated: true,
+                nodeId: normalizedNodeId,
+                summary: expandedSummary.trim(),
+                keywords: Array.isArray(keywords)
+                  ? keywords
+                      .map((keyword) => keyword.trim())
+                      .filter((keyword) => keyword.length > 0)
+                      .slice(0, 6)
+                  : undefined,
+              };
+            },
+          }),
+        }
+      : undefined;
 
   const result = streamText({
     model: minimax("MiniMax-M2.5"),
     system,
     messages: await convertToModelMessages(messages),
+    tools,
+    stopWhen: stepCountIs(4),
   });
 
   return result.toUIMessageStreamResponse();
