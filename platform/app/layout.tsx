@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Google_Sans, Google_Sans_Code } from "next/font/google";
+import { GraphTreeProvider } from "@/lib/graph-tree-context";
 import { QueryProvider } from "@/lib/query-context";
 import { SidebarLayout } from "@/components/SidebarLayout";
 import "./globals.css";
@@ -30,7 +31,9 @@ export default function RootLayout({
         className={`${customSans.variable} ${customMono.variable} antialiased`}
       >
         <QueryProvider>
-          <SidebarLayout>{children}</SidebarLayout>
+          <GraphTreeProvider>
+            <SidebarLayout>{children}</SidebarLayout>
+          </GraphTreeProvider>
         </QueryProvider>
       </body>
     </html>

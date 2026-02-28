@@ -1,5 +1,5 @@
-import type { TreeExpandResponse } from "@/lib/schemas/tree";
 import { generateExpandSubtreeWithLangChain } from "@/lib/ai/tree-generator";
+import type { TreeExpandResponse } from "@/lib/schemas/tree";
 import { NextRequest, NextResponse } from "next/server";
 
 /** Mock subtopics for "Dive deep" expansion. Key by parent node id suffix for variety. */
@@ -120,10 +120,7 @@ export async function POST(request: NextRequest) {
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const nodeId = body?.nodeId?.trim();
@@ -145,6 +142,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch {
     // Fallback: mock expansion so "Dive deep" still works without LLM config.
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     const subtopics = pickSubtree(nodeId);
     const nodes = subtopics.map((s, i) => ({
       id: `${nodeId}-sub-${i + 1}`,
