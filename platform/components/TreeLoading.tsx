@@ -26,7 +26,9 @@ const LOADING_MESSAGES = [
 const ROTATION_MS = 2000;
 
 export function TreeLoading() {
-  const [messageIndex, setMessageIndex] = useState(0);
+  const [messageIndex, setMessageIndex] = useState(
+    Math.floor(Math.random() * LOADING_MESSAGES.length),
+  );
 
   useEffect(() => {
     const id = setInterval(() => {
