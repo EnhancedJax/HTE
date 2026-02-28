@@ -27,7 +27,7 @@ export function NodeCard({
   const relatedLinks = data.relatedLinks ?? [];
 
   return (
-    <div className="h-full flex flex-col bg-card text-card-foreground border-l border-border rounded-xl shadow-xl">
+    <div className="h-full flex flex-col bg-background text-card-foreground border-l border-border rounded-xl shadow-xl">
       <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
         <h2 className="text-lg font-semibold truncate pr-2">{data.label}</h2>
         <button

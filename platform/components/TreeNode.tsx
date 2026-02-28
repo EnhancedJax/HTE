@@ -28,7 +28,12 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
   const level = (data?.level ?? 1) as 1 | 2 | 3;
-  const label = data?.label ?? "Node";
+  const metadata =
+    data?.metadata && typeof data.metadata === "object"
+      ? (data.metadata as Record<string, unknown>)
+      : null;
+  const isSkeleton = metadata?.skeleton === "true";
+  const label = isSkeleton ? "Generating..." : (data?.label ?? "Node");
   const branchIndex =
     typeof data?.branchIndex === "number" ? data.branchIndex : undefined;
   const delay = (level - 1) * STAGGER_MS;
@@ -54,25 +59,30 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
   const selectedClass = selected
     ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
     : "";
+  const skeletonClass = isSkeleton
+    ? "animate-pulse bg-muted/70 text-muted-foreground border-dashed border-muted-foreground/40"
+    : "";
 
   const style: React.CSSProperties = {
     animationDelay: `${delay}ms`,
-    ...(isLevel2 && {
+    ...(!isSkeleton &&
+      isLevel2 && {
       backgroundColor: color,
       color: "#1a1a1a",
       borderColor: color,
-    }),
-    ...(isLevel3 && {
+      }),
+    ...(!isSkeleton &&
+      isLevel3 && {
       backgroundColor: hexToRgba(color, L3_BG_OPACITY),
       color: color,
       borderColor: color,
-    }),
+      }),
   };
 
   return (
     <div>
       <div
-        className={`${baseClass} ${levelClass} ${selectedClass}`}
+        className={`${baseClass} ${levelClass} ${selectedClass} ${skeletonClass}`}
         style={style}
       >
         <span className="text-lg">{label}</span>

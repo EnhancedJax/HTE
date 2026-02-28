@@ -1,22 +1,26 @@
 "use client";
 
 import {
+  applyEdgeChanges,
+  applyNodeChanges,
   Background,
   BackgroundVariant,
   ReactFlow,
   ReactFlowProvider,
-  useEdgesState,
-  useNodesState,
   useReactFlow,
-  type Edge,
   type Node,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { LAYOUT_OPTIONS, useTreeData } from "@/hooks/useTreeData";
+import { LAYOUT_OPTIONS } from "@/hooks/useTreeData";
 import { fetchExpandSubtree } from "@/lib/api/tree";
-import type { TreeNodeData } from "@/lib/graph-types";
+import { useGraphTreeContext } from "@/lib/graph-tree-context";
+import {
+  TREE_NODE_SOURCE_HANDLE_ID,
+  TREE_NODE_TARGET_HANDLE_ID,
+  type TreeNodeData,
+} from "@/lib/graph-types";
 import { horizontalTreeLayout } from "@/lib/radial-tree-layout";
 import {
   enrichNodesWithBranchColors,
@@ -30,19 +34,17 @@ import { TreeNode } from "./TreeNode";
 
 const nodeTypes = { treeNode: TreeNode };
 const edgeTypes = { treeEdge: TreeEdge };
+const DIVE_DEEP_SKELETON_COUNT = 3;
+
+/** Right padding (px) for fitView when NodeCard is visible so the focused node stays clear of the card. */
+const NODE_CARD_FIT_PADDING_RIGHT = 336; // w-80 (320px) + right-3 (12px) + buffer
 
 interface GraphTreeInnerProps {
   query?: string;
 }
 
 function GraphTreeInner({ query }: GraphTreeInnerProps) {
-  const {
-    nodes: fetchedNodes,
-    edges: fetchedEdges,
-    status,
-    error,
-    refetch,
-  } = useTreeData(query);
+  const { nodes, edges, status, error, refetch } = useGraphTreeContext();
 
   if (status === "loading" || status === "idle") {
     return <TreeLoading />;
@@ -65,61 +67,177 @@ function GraphTreeInner({ query }: GraphTreeInnerProps) {
     );
   }
 
-  return (
-    <GraphTreeFlow
-      initialNodes={fetchedNodes}
-      initialEdges={fetchedEdges}
-      query={query}
-    />
-  );
+  return <GraphTreeFlow query={query} />;
 }
 
 interface GraphTreeFlowProps {
-  initialNodes: Node<TreeNodeData>[];
-  initialEdges: Edge[];
   query?: string;
 }
 
-function GraphTreeFlow({
-  initialNodes,
-  initialEdges,
-  query,
-}: GraphTreeFlowProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+function GraphTreeFlow({ query }: GraphTreeFlowProps) {
+  const { nodes, edges, setNodes, setEdges, focusNodeId, setFocusNodeId } =
+    useGraphTreeContext();
   const [selectedNode, setSelectedNode] = useState<Node<TreeNodeData> | null>(
     null,
   );
   const [diveDeepLoading, setDiveDeepLoading] = useState(false);
+  const hasZoomedOutOnFirstDiveRef = useRef(false);
   const reactFlow = useReactFlow<Node<TreeNodeData>>();
+
+  const applyLayoutAndColors = useCallback(
+    (nextNodes: Node<TreeNodeData>[], nextEdges: typeof edges) => {
+      setEdges(nextEdges);
+      const layouted = horizontalTreeLayout(
+        nextNodes,
+        nextEdges,
+        LAYOUT_OPTIONS,
+      );
+      setNodes(enrichNodesWithBranchColors(layouted, nextEdges));
+    },
+    [setEdges, setNodes],
+  );
 
   const isLeaf =
     selectedNode && !edges.some((e) => e.source === selectedNode.id);
 
+  // When sidebar requests focus, fit view to that node and select it
+  useEffect(() => {
+    if (!focusNodeId) return;
+    const node = nodes.find((n) => n.id === focusNodeId);
+    if (!node) {
+      return;
+    }
+    setSelectedNode(node);
+    const focusView = () => {
+      if (reactFlow.viewportInitialized) {
+        const flowNodes = reactFlow.getNodes();
+        const flowNode = flowNodes.find((n) => n.id === focusNodeId);
+        if (flowNode) {
+          reactFlow.fitView({
+            nodes: [flowNode],
+            padding: {
+              right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
+            },
+            duration: 400,
+          });
+        } else {
+          // Node may not be in flow yet; pan to node position (approximate center of node)
+          const cx = node.position.x + 120;
+          const cy = node.position.y + 40;
+          reactFlow.setCenter(cx, cy, { duration: 400 });
+        }
+      }
+      setFocusNodeId(null);
+    };
+    // Defer so viewport and node list are ready after state updates (see React Flow fitView docs)
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(focusView);
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [focusNodeId, nodes, reactFlow, setFocusNodeId]);
+
+  const onNodesChange = useCallback(
+    (changes: Parameters<typeof applyNodeChanges>[0]) =>
+      setNodes((nds) => applyNodeChanges(changes, nds) as Node<TreeNodeData>[]),
+    [setNodes],
+  );
+  const onEdgesChange = useCallback(
+    (changes: Parameters<typeof applyEdgeChanges>[0]) =>
+      setEdges((eds) => applyEdgeChanges(changes, eds)),
+    [setEdges],
+  );
+
   const onDiveDeep = useCallback(async () => {
     if (!selectedNode) return;
+    const parentId = selectedNode.id;
+    const parentLevel = Number(selectedNode.data?.level ?? 1);
+    const childLevel = Math.min(parentLevel + 1, 3) as 1 | 2 | 3;
+    const skeletonNodes: Node<TreeNodeData>[] = Array.from(
+      { length: DIVE_DEEP_SKELETON_COUNT },
+      (_, index) => ({
+        id: `${parentId}--skeleton-${index + 1}`,
+        type: "treeNode",
+        position: { x: 0, y: 0 },
+        data: {
+          label: "Generating...",
+          level: childLevel,
+          metadata: { parent: parentId, skeleton: "true" },
+        } as TreeNodeData,
+      }),
+    );
+    const skeletonEdges = skeletonNodes.map((node, index) => ({
+      id: `e-${parentId}--skeleton-${index + 1}`,
+      source: parentId,
+      target: node.id,
+      type: "treeEdge" as const,
+      sourceHandle: TREE_NODE_SOURCE_HANDLE_ID,
+      targetHandle: TREE_NODE_TARGET_HANDLE_ID,
+    }));
+
+    const nodesWithoutSkeleton = nodes.filter(
+      (node) =>
+        !(
+          typeof node.data?.metadata === "object" &&
+          node.data?.metadata &&
+          (node.data.metadata as Record<string, unknown>).parent === parentId &&
+          (node.data.metadata as Record<string, unknown>).skeleton === "true"
+        ),
+    );
+    const edgesWithoutSkeleton = edges.filter(
+      (edge) =>
+        !(
+          edge.source === parentId &&
+          edge.target.includes(`${parentId}--skeleton-`)
+        ),
+    );
+
+    applyLayoutAndColors(
+      [...nodesWithoutSkeleton, ...skeletonNodes],
+      [...edgesWithoutSkeleton, ...skeletonEdges],
+    );
+    if (!hasZoomedOutOnFirstDiveRef.current) {
+      hasZoomedOutOnFirstDiveRef.current = true;
+      // One-time zoom out on the first dive-deep interaction.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          void reactFlow.fitView({
+            padding: {
+              right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
+            },
+            duration: 350,
+          });
+        });
+      });
+    }
+
     setDiveDeepLoading(true);
     try {
-      const data = await fetchExpandSubtree(selectedNode.id, query);
+      const data = await fetchExpandSubtree(parentId, query);
       const newFlowNodes = payloadToFlowNodes(data.nodes);
       const newFlowEdges = payloadToFlowEdges(data.edges);
-      const mergedEdges = [...edges, ...newFlowEdges];
 
-      setNodes((prev) => {
-        const merged = horizontalTreeLayout(
-          [...prev, ...newFlowNodes],
-          mergedEdges,
-          LAYOUT_OPTIONS,
-        );
-        return enrichNodesWithBranchColors(merged, mergedEdges);
-      });
-      setEdges(mergedEdges);
+      applyLayoutAndColors(
+        [...nodesWithoutSkeleton, ...newFlowNodes],
+        [...edgesWithoutSkeleton, ...newFlowEdges],
+      );
+      if (newFlowNodes.length > 0) {
+        setFocusNodeId(newFlowNodes[0].id);
+      }
     } catch {
-      // Could surface error in UI; for now no-op
+      // Revert temporary skeleton children when expansion fails.
+      applyLayoutAndColors(nodesWithoutSkeleton, edgesWithoutSkeleton);
     } finally {
       setDiveDeepLoading(false);
     }
-  }, [selectedNode, query, edges, setNodes, setEdges]);
+  }, [
+    selectedNode,
+    query,
+    nodes,
+    edges,
+    applyLayoutAndColors,
+    setFocusNodeId,
+    reactFlow,
+  ]);
 
   const onNodeClick: NodeMouseHandler<Node<TreeNodeData>> = useCallback(
     (_event, node) => {
@@ -127,7 +245,9 @@ function GraphTreeFlow({
       if (reactFlow.viewportInitialized) {
         reactFlow.fitView({
           nodes: [node],
-          padding: 0.35,
+          padding: {
+            right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
+          },
           duration: 400,
         });
       }

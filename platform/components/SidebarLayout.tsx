@@ -14,19 +14,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
-      <Sidebar open={sidebarOpen}>
-        <div className="space-y-1 px-2 text-sm text-sidebar-foreground/80">
-          <p className="px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/60">
-            Navigation
-          </p>
-          <a
-            href="/"
-            className="block rounded-md px-2 py-1.5 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            Knowledge Tree
-          </a>
-        </div>
-      </Sidebar>
+      <Sidebar open={sidebarOpen} />
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col overflow-auto">
           {children}
