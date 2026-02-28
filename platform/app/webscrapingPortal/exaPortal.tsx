@@ -4,7 +4,20 @@ import Exa from "exa-js";
 const EXA_API_KEY = "66c6d8d4-be45-439e-adc1-193d134c48b3";
 
 const exa = new Exa(EXA_API_KEY);
-const result = await exa.search(
-  "what can you search?",
-  { type: "instant" }
-);
+
+export default async function queryExa(query: string, numResults? : number, guidance? : string, maxChar?: number) {
+  const result = await exa.search(
+    query, 
+    { 
+      numResults: numResults || 5,
+      type: "auto", 
+      contents: {
+        highlights: {
+          query: guidance || "",
+          maxCharacters: maxChar || 3000,
+        },
+      }
+    }
+  );
+  return result;
+}
