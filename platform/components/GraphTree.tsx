@@ -8,21 +8,61 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  type Edge,
   type Node,
   type NodeMouseHandler,
 } from "@xyflow/react";
 import { useCallback, useState } from "react";
 
 import type { TreeNodeData } from "@/lib/graph-types";
-import { initialTreeEdges, initialTreeNodes } from "@/lib/mock-tree-data";
+import { useTreeData } from "@/hooks/useTreeData";
+import { CenterToCenterEdge } from "./CenterToCenterEdge";
 import { NodeCard } from "./NodeCard";
 import { TreeNode } from "./TreeNode";
 
 const nodeTypes = { treeNode: TreeNode };
+const edgeTypes = { centerToCenter: CenterToCenterEdge };
 
 function GraphTreeInner() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialTreeNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialTreeEdges);
+  const { nodes: fetchedNodes, edges: fetchedEdges, status, error, refetch } =
+    useTreeData();
+
+  if (status === "loading" || status === "idle") {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-muted/30">
+        <p className="text-muted-foreground">Loading tree…</p>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-muted/30 p-4">
+        <p className="text-destructive">{error?.message ?? "Failed to load tree"}</p>
+        <button
+          type="button"
+          onClick={refetch}
+          className="rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <GraphTreeFlow initialNodes={fetchedNodes} initialEdges={fetchedEdges} />
+  );
+}
+
+interface GraphTreeFlowProps {
+  initialNodes: Node<TreeNodeData>[];
+  initialEdges: Edge[];
+}
+
+function GraphTreeFlow({ initialNodes, initialEdges }: GraphTreeFlowProps) {
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node<TreeNodeData> | null>(
     null,
   );
@@ -54,6 +94,8 @@ function GraphTreeInner() {
           onEdgesChange={onEdgesChange}
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={{ type: "centerToCenter" }}
           fitView
           fitViewOptions={{ padding: 0.2 }}
           minZoom={0.2}
