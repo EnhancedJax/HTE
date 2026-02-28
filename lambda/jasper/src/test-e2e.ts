@@ -1,6 +1,6 @@
 /**
- * E2E test: load crawler-format data → chunk → embed (MiniMax) → upsert (Pinecone).
- * Requires lambda/jasper/.env with MINIMAX_* and PINECONE_* set.
+ * E2E test: load crawler-format data → chunk → embed (Hugging Face) → upsert (Pinecone).
+ * Requires lambda/jasper/.env with HF_* and PINECONE_* set.
  * Usage: npx tsx src/test-e2e.ts [path/to/raw_documents]
  *        Default path: ./raw_documents
  */

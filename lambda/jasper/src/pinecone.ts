@@ -14,7 +14,7 @@ function getConfigFromEnv() {
   if (!apiKey) throw new Error("Missing PINECONE_API_KEY");
   const indexName = process.env.PINECONE_INDEX_NAME?.trim() || DEFAULT_INDEX_NAME;
   const region = process.env.PINECONE_ENVIRONMENT?.trim() || process.env.PINECONE_REGION?.trim() || DEFAULT_REGION;
-  const dim = parseInt(process.env.PINECONE_DIM ?? "1536", 10);
+  const dim = parseInt(process.env.PINECONE_DIM ?? "384", 10);
   if (!Number.isFinite(dim) || dim < 1) throw new Error("Invalid PINECONE_DIM (must be positive integer)");
   return { apiKey, indexName, region, dimension: dim };
 }

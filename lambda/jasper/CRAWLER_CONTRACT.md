@@ -48,7 +48,7 @@ Jasper 支援兩種輸入格式，**任一種**都可以直接使用。
 }
 ```
 
-### 若一次送多份文件（例如呼叫 Lambda 或 API）
+### 若一次送多份文件（例如呼叫 API 或腳本）
 
 Payload 形狀：
 
@@ -89,6 +89,6 @@ Payload 形狀：
 
 - **本機 / 腳本**：把多個符合上述格式的 JSON 放進 `lambda/jasper/raw_documents/`，在 `lambda/jasper` 執行：  
   `npm run run:local -- ./raw_documents`
-- **Lambda**：Invoke 時 event body 為 `{ "documents": [ ... ] }`，陣列裡每個元素都是上面格式的物件。
+- **API / 腳本**：傳入 `{ "documents": [ ... ] }`，陣列裡每個元素都是上面格式的物件。
 
 如有欄位名稱或型別不確定，以 `lambda/jasper/src/types.ts` 裡的 `RawDocument` 為準。

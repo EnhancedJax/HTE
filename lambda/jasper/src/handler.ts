@@ -1,7 +1,7 @@
 /**
- * Stage 2 – Jasper: Lambda handler.
+ * Stage 2 – Jasper: Ingest pipeline (chunk → embed → upsert).
  * Event: { documents: RawDocument[] } OR crawler format { "User Query", "Relevant Topics", "Results" }.
- * 1) Normalize to RawDocument[] 2) Chunk 3) Embed (MiniMax) 4) Upsert (Pinecone)
+ * 1) Normalize to RawDocument[] 2) Chunk 3) Embed (Hugging Face) 4) Upsert (Pinecone)
  */
 import { chunkDocuments } from "./chunk.js";
 import { normalizeToDocuments } from "./crawler-to-docs.js";
@@ -28,7 +28,7 @@ export async function handler(event: IngestEvent): Promise<IngestResponse> {
       };
     }
 
-    // 2) Embed with MiniMax (batched)
+    // 2) Embed with Hugging Face (batched)
     const embedded = await embedChunks(chunks);
 
     // 3) Ensure index exists, then upsert
