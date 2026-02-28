@@ -20,6 +20,26 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Backend (LangChain) configuration
+
+This project exposes API routes under `app/api/`:
+
+- `GET /api/tree?q=...` — generate the initial 3-level knowledge tree
+- `POST /api/tree/expand` — expand a leaf node ("Dive deep")
+
+To enable the LangChain-backed generator, create `platform/.env.local` with:
+
+```bash
+LLM_API_KEY=...
+# Optional (defaults shown)
+LLM_MODEL=gpt-4o-mini
+# Use this when calling an OpenAI-compatible provider (DeepSeek/Minimax/etc.)
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_TEMPERATURE=0.4
+```
+
+If no key is configured, the API falls back to mock data so the UI remains usable.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

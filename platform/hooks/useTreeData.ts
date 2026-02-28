@@ -63,6 +63,7 @@ export function useTreeData(query?: string): UseTreeDataResult {
   }, [query]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- this hook intentionally fetches and updates local state.
     load();
   }, [load]);
 

@@ -1,0 +1,24 @@
+{
+  "name": "jasper-ingest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stage 2 – Jasper: Chunk + Embed + Build Vector DB (MiniMax + Pinecone)",
+  "main": "dist/handler.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "invoke": "node dist/handler.js",
+    "run:local": "npx tsx src/run-local.ts"
+  },
+  "dependencies": {
+    "@pinecone-database/pinecone": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.7.0",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
