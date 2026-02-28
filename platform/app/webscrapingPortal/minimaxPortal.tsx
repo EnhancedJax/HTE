@@ -5,52 +5,49 @@ const API_HOST = "https://api.minimax.io";
 const url = `${API_HOST}/v1/chat/completions?GroupId=${GROUP_ID}`;
 
 function removeThinkTags(content: string): string {
-    return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    const thinkEndIndex = content.indexOf('</think>');
+    if (thinkEndIndex !== -1) {
+        return content.slice(thinkEndIndex + '</think>'.length).trim();
+    }
+    return content.trim();
 }
 
-async function askMiniMax(messages: {role: string, content: string}[]): Promise<string | null> {
-
-    const headers = {
-        "Authorization": `Bearer ${API_KEY}`,
-        "Content-Type": "application/json"
-    };
-
-    const body = {
-        model: "MiniMax-M2.5",
-        messages: messages,
-        temperature: 0.7,
-    };
-
+export default async function queryMiniMax(query: string) {
     try {
-        console.log("Sending request to MiniMax...");
         const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(body)
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: "MiniMax-M2.5",
+                messages: [
+                    { role: "user", content: query }
+                ],
+                temperature: 0.7,
+            }),
         });
 
         if (!response.ok) {
-            const errorBody = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorBody}`);
+            throw new Error(`MiniMax API error: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
-
+        
+        // Clean the think tags from the response content
         if (data.choices && data.choices.length > 0) {
-            const rawReply = data.choices[0].message.content;
-            const cleanReply = removeThinkTags(rawReply);
-            console.log("\nMiniMax's Response (cleaned):");
-            console.log(cleanReply);
-            return cleanReply;
-        } else {
-            console.log("Unexpected API response structure:", data);
-            return null;
+            data.choices[0].message.content = removeThinkTags(data.choices[0].message.content);
         }
-
+        
+        return data.choices[0].message.content;
     } catch (error) {
-        console.error("Error calling MiniMax API:", error);
-        return null;
+        console.error("Error querying MiniMax:", error);
+        throw error;
     }
 }
 
-askMiniMax([{role: "user", content: "Given the following question: What can you tell me about recent quantum computing technology?\nPlease break it down and extract a list of 5 relevant topics/keywords, each topic being only 3 words max.\nGive it in the format: Topic 1, Topic 2, Topic 3,...."}]);
+// console.log("Testing MiniMax API...");
+// queryMiniMax("Given the following question: What is the current situation in Gaza?\nPlease break it down and extract a list of 5 relevant topics/keywords, each topic being only 3 words max.\nGive it in the format: Topic 1, Topic 2, Topic 3,....").then(response => {
+//     console.log("Response:", response);
+// }).catch(console.error);

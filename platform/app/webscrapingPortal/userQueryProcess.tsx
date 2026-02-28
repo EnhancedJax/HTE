@@ -1,5 +1,6 @@
 import queryDeepSeek from "./deepseekPortal";
 import queryExa from "./exaPortal";
+import queryMiniMax from "./minimaxPortal";
 
 const PROCESS_RESPONSE_PROMPTS = {
     "extractTopics": (query: string) => `Given the following question: ${query}\nPlease break it down and extract a list of 5 relevant topics/keywords, each topic being only 3 words max.\nGive it in the format: Topic 1, Topic 2, Topic 3,....`,
@@ -28,16 +29,16 @@ export default async function processUserQuery(query: string) {
     };
 
     //larger topic breakdown
-    const topics_results = await queryDeepSeek(PROCESS_RESPONSE_PROMPTS.extractTopics(query));
+    const topics_results = await queryMiniMax(PROCESS_RESPONSE_PROMPTS.extractTopics(query));
     const topics = topics_results.split(",").map((t: string) => t.trim());
     results["Relevant Topics"] = topics;
 
     //topic subquestion breakdown
     for (const topic of topics) {
         results.Results[topic] = {};
-        const subquestions_results = await queryDeepSeek(PROCESS_RESPONSE_PROMPTS.extractSubquestions(topic));
+        const subquestions_results = await queryMiniMax(PROCESS_RESPONSE_PROMPTS.extractSubquestions(topic));
         const subquestions = subquestions_results.split("|").map((q: string) => q.trim());
-        console.log(subquestions);
+        // console.log(subquestions);
 
         for (const subquestion of subquestions) {
             results.Results[topic][subquestion] = [];
@@ -57,7 +58,7 @@ export default async function processUserQuery(query: string) {
         }
     }
 
-    console.log(JSON.stringify(results));
+    // console.log(results);
     return JSON.stringify(results);
 }
 
