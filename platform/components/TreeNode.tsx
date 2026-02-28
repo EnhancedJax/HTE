@@ -17,8 +17,9 @@ const level1Styles = "bg-white text-black border-border shadow-lg scale-105";
 /** Stagger delay (ms) per tree level so nodes fade in from center outward. */
 const STAGGER_MS = 60;
 
-/** Opacity for level-3 subnode background (transparent variant of branch color). */
-const L3_BG_OPACITY = 0.2;
+const DEEP_LEVEL_BASE_OPACITY = 0.24;
+const DEEP_LEVEL_STEP_OPACITY = 0.02;
+const DEEP_LEVEL_MIN_OPACITY = 0.08;
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -49,15 +50,19 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
       ? NODE_PALETTE[branchIndex % NODE_PALETTE.length]
       : null;
 
-  const isLevel2 = level === 2 && color;
-  const isDeeperLevel = level >= 3 && color;
+  const isRoot = level === 1;
+  const isColoredBranchNode = !isRoot && Boolean(color);
+  const deepLevelOpacity = Math.max(
+    DEEP_LEVEL_MIN_OPACITY,
+    DEEP_LEVEL_BASE_OPACITY - Math.max(0, level - 3) * DEEP_LEVEL_STEP_OPACITY,
+  );
 
   const baseClass =
     "tree-node-in relative px-4 py-2.5 rounded-lg border-2 min-w-[100px] font-medium transition-all duration-200";
   const levelClass =
-    level === 1
+    isRoot
       ? level1Styles
-      : isLevel2 || isDeeperLevel
+      : isColoredBranchNode
         ? "border-current"
         : level === 2
           ? "bg-secondary text-secondary-foreground border-secondary"
@@ -73,14 +78,16 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
     animationDelay: `${delay}ms`,
     maxWidth: `${TREE_NODE_MAX_WIDTH_PX}px`,
     ...(!isSkeleton &&
-      isLevel2 && {
+      color &&
+      level === 2 && {
         backgroundColor: color,
         color: "#1a1a1a",
         borderColor: color,
       }),
     ...(!isSkeleton &&
-      isDeeperLevel && {
-        backgroundColor: hexToRgba(color, L3_BG_OPACITY),
+      color &&
+      level >= 3 && {
+        backgroundColor: hexToRgba(color, deepLevelOpacity),
         color: color,
         borderColor: color,
       }),

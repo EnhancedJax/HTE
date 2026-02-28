@@ -60,6 +60,16 @@ function uniqById<T extends { id: string }>(items: T[]): T[] {
   return result;
 }
 
+function isAtLeastAsComplete(
+  candidate: TreeExpandResponse,
+  baseline: TreeExpandResponse | null,
+): boolean {
+  if (!baseline) return true;
+  if (candidate.nodes.length < baseline.nodes.length) return false;
+  if (candidate.edges.length < baseline.edges.length) return false;
+  return true;
+}
+
 function normalizeTreePayload(raw: unknown, query: string): TreeDataResponse | null {
   const obj = asRecord(raw);
   if (!obj) return null;
@@ -129,75 +139,13 @@ function normalizeTreePayload(raw: unknown, query: string): TreeDataResponse | n
     : [rootNode, ...nodes];
 
   const existingNodeIds = new Set(withRootNodes.map((node) => node.id));
-  let safeEdges = edges.filter(
+  const safeEdges = edges.filter(
     (edge) => existingNodeIds.has(edge.source) && existingNodeIds.has(edge.target),
   );
 
-  if (safeEdges.length === 0) {
-    const level2 = withRootNodes.filter((node) => node.data.level === 2);
-    const level3 = withRootNodes.filter((node) => node.data.level === 3);
-    const inferredEdges: TreeDataResponse["edges"] = [];
-
-    for (const node of level2) {
-      inferredEdges.push({
-        id: `root--${node.id}`,
-        source: "root",
-        target: node.id,
-      });
-    }
-    const chunkSize = level2.length > 0 ? Math.ceil(level3.length / level2.length) : 0;
-    level3.forEach((node, index) => {
-      const parent = level2[Math.floor(index / Math.max(chunkSize, 1))];
-      if (!parent) return;
-      inferredEdges.push({
-        id: `${parent.id}--${node.id}`,
-        source: parent.id,
-        target: node.id,
-      });
-    });
-    safeEdges = inferredEdges;
-  }
-
-  // Education root tree contract:
-  // - one layer only (root + direct children)
-  // - max 4 children
-  const finalRootNode =
-    withRootNodes.find((node) => node.id === "root") ?? {
-      id: "root",
-      type: "treeNode",
-      data: { label: query, level: 1 as const, metadata: { type: "root" } },
-    };
-
-  const level2Nodes = withRootNodes.filter(
-    (node) => node.id !== "root" && node.data.level === 2,
-  );
-
-  const edgeTargetsFromRoot = safeEdges
-    .filter((edge) => edge.source === "root")
-    .map((edge) => edge.target);
-
-  const preferredChildren = edgeTargetsFromRoot
-    .map((targetId) => level2Nodes.find((node) => node.id === targetId))
-    .filter(
-      (node): node is TreeDataResponse["nodes"][number] => node !== undefined,
-    );
-
-  const fallbackChildren = level2Nodes.filter(
-    (node) => !preferredChildren.some((preferred) => preferred.id === node.id),
-  );
-
-  const selectedChildren = [...preferredChildren, ...fallbackChildren].slice(0, 4);
-  const selectedChildIds = new Set(selectedChildren.map((node) => node.id));
-
-  safeEdges = selectedChildren.map((node) => ({
-    id: `root--${node.id}`,
-    source: "root",
-    target: node.id,
-  }));
-
   return {
     query,
-    nodes: [finalRootNode, ...selectedChildren.filter((node) => selectedChildIds.has(node.id))],
+    nodes: withRootNodes,
     edges: safeEdges,
   };
 }
@@ -207,8 +155,6 @@ function normalizeExpandPayload(raw: unknown, parentId: string): TreeExpandRespo
   if (!obj) return null;
 
   const nodeValues = Array.isArray(obj.nodes) ? obj.nodes : [];
-  const edgeValues = Array.isArray(obj.edges) ? obj.edges : [];
-
   const nodes: TreeExpandResponse["nodes"] = [];
   for (const value of nodeValues) {
     const nodeObj = asRecord(value);
@@ -219,7 +165,7 @@ function normalizeExpandPayload(raw: unknown, parentId: string): TreeExpandRespo
     const dataObj = asRecord(nodeObj.data) ?? {};
     const label = asString(dataObj.label);
     const level = asTreeLevel(dataObj.level);
-    if (!id || !label || !level) continue;
+    if (!id || !label || !level || id === parentId) continue;
 
     nodes.push({
       id,
@@ -233,19 +179,12 @@ function normalizeExpandPayload(raw: unknown, parentId: string): TreeExpandRespo
     });
   }
   const uniqueNodes = uniqById(nodes);
-  // Keep expansion topology stable: every returned node is a direct child of the clicked parent.
-  // This avoids malformed/partial model edges causing disconnected nodes in React Flow layout.
   const edges: TreeExpandResponse["edges"] = uniqueNodes.map((node) => ({
     id: `${parentId}--${node.id}`,
     source: parentId,
     target: node.id,
   }));
-
-  // Preserve only nodes reachable by those direct parent edges.
-  const connectedIds = new Set(edges.map((edge) => edge.target));
-  const connectedNodes = uniqueNodes.filter((node) => connectedIds.has(node.id));
-
-  return { nodes: connectedNodes, edges: uniqById(edges) };
+  return { nodes: uniqueNodes, edges: uniqById(edges) };
 }
 
 function tryParseJsonCandidate(candidate: string): unknown | null {
@@ -377,49 +316,21 @@ export async function streamEducationTreeData(
 
   const res = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "text/plain" },
+    headers: { Accept: "application/json" },
     signal,
   });
 
   if (!res.ok) {
     throw new Error(`Education API error: ${res.status} ${res.statusText}`);
   }
-  if (!res.body) {
-    throw new Error("Education API did not return a readable stream.");
+
+  const parsed = (await res.json()) as unknown;
+  const normalized = normalizeTreePayload(parsed, query);
+  if (!normalized) {
+    throw new Error("Education API completed without valid root JSON.");
   }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let latest: TreeDataResponse | null = null;
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    const parsed = coerceJsonFromStream(buffer);
-    if (!parsed) continue;
-
-    const normalized = normalizeTreePayload(parsed, query);
-    if (!normalized) continue;
-    if (!normalized.edges.some((edge) => edge.source === "root")) continue;
-    latest = normalized;
-    onPartial(normalized);
-  }
-
-  buffer += decoder.decode();
-  const parsed = coerceJsonFromStream(buffer);
-  const normalized = parsed ? normalizeTreePayload(parsed, query) : null;
-  if (normalized && normalized.edges.some((edge) => edge.source === "root")) {
-    latest = normalized;
-    onPartial(normalized);
-  }
-
-  if (!latest) {
-    throw new Error("Education stream completed without valid tree JSON.");
-  }
-  return latest;
+  onPartial(normalized);
+  return normalized;
 }
 
 export async function streamEducationExpandSubtree(
@@ -471,6 +382,7 @@ export async function streamEducationExpandSubtree(
     if (!parsed) continue;
     const normalized = normalizeExpandPayload(parsed, nodeId);
     if (!normalized || normalized.nodes.length === 0) continue;
+    if (!isAtLeastAsComplete(normalized, latest)) continue;
     latest = normalized;
     onPartial(normalized);
   }
@@ -478,7 +390,11 @@ export async function streamEducationExpandSubtree(
   buffer += decoder.decode();
   const parsed = coerceJsonFromStream(buffer);
   const normalized = parsed ? normalizeExpandPayload(parsed, nodeId) : null;
-  if (normalized && normalized.nodes.length > 0) {
+  if (
+    normalized &&
+    normalized.nodes.length > 0 &&
+    isAtLeastAsComplete(normalized, latest)
+  ) {
     latest = normalized;
     onPartial(normalized);
   }

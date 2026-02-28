@@ -25,7 +25,6 @@ export interface TreeNodeDataPayload {
   images?: string[];
   /** Related links or sources. */
   relatedLinks?: RelatedLinkPayload[];
-  /** 3-4 highlighted learning keywords used for quick expansion. */
   keywords?: string[];
   metadata?: Record<string, string>;
 }

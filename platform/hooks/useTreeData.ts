@@ -1,6 +1,10 @@
 "use client";
 
-import { fetchTreeData, streamEducationTreeData } from "@/lib/api/tree";
+import {
+  fetchTreeData,
+  streamEducationExpandSubtree,
+  streamEducationTreeData,
+} from "@/lib/api/tree";
 import {
   TREE_NODE_COLUMN_GAP_PX,
   TREE_NODE_MAX_WIDTH_PX,
@@ -24,7 +28,7 @@ export const LAYOUT_OPTIONS: TreeLayoutOptions = {
   originX: 80,
   originY: 40,
 };
-const ROOT_SKELETON_COUNT = 4;
+const ROOT_SKELETON_COUNT = 3;
 
 export type TreeDataStatus = "idle" | "loading" | "success" | "error";
 
@@ -74,6 +78,23 @@ export function useTreeData(
       };
 
       if (mode === "education" && query?.trim()) {
+        const rootData = await streamEducationTreeData(
+          query,
+          applyData,
+          controller.signal,
+        );
+        const rootNode = rootData.nodes.find((node) => node.id === "root");
+        if (!rootNode) {
+          throw new Error("Education API did not return a root node.");
+        }
+        const rootSummary = rootNode.data.summary ?? rootNode.data.description;
+        const rootKeywords = Array.isArray(rootNode.data.keywords)
+          ? rootNode.data.keywords.filter(
+              (keyword): keyword is string =>
+                typeof keyword === "string" && keyword.trim().length > 0,
+            )
+          : [];
+
         const initialSkeletonNodes = Array.from(
           { length: ROOT_SKELETON_COUNT },
           (_, index) => ({
@@ -88,72 +109,57 @@ export function useTreeData(
             >["nodes"][number]["data"],
           }),
         );
+        const initialSkeletonEdges = initialSkeletonNodes.map((node) => ({
+          id: `root--${node.id}`,
+          source: "root",
+          target: node.id,
+        }));
         applyData({
-          query,
-          nodes: [
-            {
-              id: "root",
-              type: "treeNode",
-              data: { label: query, level: 1, metadata: { type: "root" } },
-            },
-            ...initialSkeletonNodes,
-          ],
-          edges: initialSkeletonNodes.map((node) => ({
-            id: `root--${node.id}`,
-            source: "root",
-            target: node.id,
-          })),
+          query: rootData.query,
+          nodes: [rootNode, ...initialSkeletonNodes],
+          edges: initialSkeletonEdges,
         });
 
-        const applyPartialWithSkeletons = (
-          data: Awaited<ReturnType<typeof fetchTreeData>>,
+        const applyPartialRootExpansion = (
+          data: Awaited<ReturnType<typeof streamEducationExpandSubtree>>,
         ) => {
-          const childTargets = Array.from(
-            new Set(
-              data.edges
-                .filter((edge) => edge.source === "root")
-                .map((edge) => edge.target),
-            ),
-          );
-          const loadedChildren = data.nodes.filter(
-            (node) => node.id !== "root" && childTargets.includes(node.id),
-          );
           const remainingSkeletonCount = Math.max(
             0,
-            ROOT_SKELETON_COUNT - loadedChildren.length,
+            ROOT_SKELETON_COUNT - data.nodes.length,
           );
-
-          const skeletonNodes = Array.from(
-            { length: remainingSkeletonCount },
-            (_, index) => ({
-              id: `root--skeleton-${index + 1}`,
-              type: "treeNode",
-              data: {
-                label: "Generating...",
-                level: 2,
-                metadata: { parent: "root", skeleton: "true" },
-              } as (typeof data.nodes)[number]["data"],
-            }),
+          const skeletonNodes = initialSkeletonNodes.slice(
+            0,
+            remainingSkeletonCount,
           );
-          const skeletonEdges = skeletonNodes.map((node) => ({
-            id: `root--${node.id}`,
-            source: "root",
-            target: node.id,
-          }));
-
+          const skeletonEdges = initialSkeletonEdges.slice(
+            0,
+            remainingSkeletonCount,
+          );
           applyData({
-            query: data.query,
-            nodes: [...data.nodes, ...skeletonNodes],
+            query: rootData.query,
+            nodes: [rootNode, ...data.nodes, ...skeletonNodes],
             edges: [...data.edges, ...skeletonEdges],
           });
         };
 
-        const finalData = await streamEducationTreeData(
+        const finalExpansion = await streamEducationExpandSubtree(
+          "root",
+          applyPartialRootExpansion,
           query,
-          applyPartialWithSkeletons,
+          {
+            nodeLabel: rootNode.data.label,
+            nodeSummary: rootSummary,
+            keywords: rootKeywords,
+            level: 1,
+          },
           controller.signal,
         );
-        applyData(finalData);
+
+        applyData({
+          query: rootData.query,
+          nodes: [rootNode, ...finalExpansion.nodes],
+          edges: finalExpansion.edges,
+        });
       } else {
         const data = await fetchTreeData(query, mode, controller.signal);
         applyData(data);

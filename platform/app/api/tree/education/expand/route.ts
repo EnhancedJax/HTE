@@ -43,7 +43,9 @@ export async function POST(request: NextRequest) {
     baseURL: DEEPSEEK_BASE_URL,
   });
 
-  const parentLevel = Number.isInteger(body.level) ? Math.max(2, Number(body.level)) : 2;
+  const parentLevel = Number.isInteger(body.level)
+    ? Math.max(1, Number(body.level))
+    : 1;
   const childLevel = parentLevel + 1;
   const explicitKeywords = Array.isArray(body.keywords)
     ? body.keywords
@@ -53,7 +55,9 @@ export async function POST(request: NextRequest) {
         .slice(0, 4)
     : [];
   const summaryKeywords = extractUnderscoredKeywords(body.nodeSummary ?? "");
-  const keywords = (explicitKeywords.length > 0 ? explicitKeywords : summaryKeywords).slice(0, 4);
+  const keywords = (
+    explicitKeywords.length > 0 ? explicitKeywords : summaryKeywords
+  ).slice(0, 4);
 
   const result = streamText({
     model: deepseek("deepseek-chat"),
@@ -67,14 +71,16 @@ export async function POST(request: NextRequest) {
       `Root topic query: ${JSON.stringify(body.query ?? "")}`,
       `Highlighted keywords to use as direct subnodes: ${JSON.stringify(keywords)}`,
       "Generate child nodes from these highlighted keywords (one node per keyword, max 4).",
-      "If keyword list is empty, infer 3-4 key terms from the parent summary and use those.",
+      "If keyword list is empty, infer 3 key terms from the parent summary and use those.",
       "Node labels should closely match the keyword terms.",
-      "For every generated child node summary, highlight 3-4 key terms using underscore markdown syntax like _term_.",
-      "For every generated child node, include data.keywords as the same 3-4 highlighted terms from its summary.",
+      "For every generated child node summary, highlight 3 key terms using underscore markdown syntax like _term_.",
+      "For every generated child node, include data.keywords as the same 3 highlighted terms from its summary.",
       `Set each generated child node level to ${childLevel}.`,
       `Each child id must start with "${nodeId}-sub-".`,
+      "Keep ids URL-safe (letters, numbers, dashes).",
+      "Do not generate edges.",
       "Output shape:",
-      `{ "nodes": [{ "id": string, "type": "treeNode", "data": { "label": string, "level": ${childLevel}, "summary": string, "keywords": string[] } }], "edges": [{ "id": string, "source": string, "target": string }] }`,
+      `{ "nodes": [{ "id": string, "type": "treeNode", "data": { "label": string, "level": ${childLevel}, "summary": string, "keywords": string[] } }] }`,
     ].join("\n"),
   });
 

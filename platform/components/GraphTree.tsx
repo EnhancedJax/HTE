@@ -11,10 +11,13 @@ import {
   type Node,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LAYOUT_OPTIONS } from "@/hooks/useTreeData";
-import { fetchExpandSubtree, streamEducationExpandSubtree } from "@/lib/api/tree";
+import {
+  fetchExpandSubtree,
+  streamEducationExpandSubtree,
+} from "@/lib/api/tree";
 import { useGraphTreeContext } from "@/lib/graph-tree-context";
 import {
   TREE_NODE_SOURCE_HANDLE_ID,
@@ -34,7 +37,7 @@ import { TreeNode } from "./TreeNode";
 
 const nodeTypes = { treeNode: TreeNode };
 const edgeTypes = { treeEdge: TreeEdge };
-const DIVE_DEEP_SKELETON_COUNT = 4;
+const DIVE_DEEP_SKELETON_COUNT = 3;
 
 /** Right padding (px) for fitView when NodeCard is visible so the focused node stays clear of the card. */
 const NODE_CARD_FIT_PADDING_RIGHT = 336; // w-80 (320px) + right-3 (12px) + buffer
@@ -87,17 +90,35 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
     pipelineMode,
   } = useGraphTreeContext();
   const [diveDeepLoading, setDiveDeepLoading] = useState(false);
+  const diveDeepLoadingRef = useRef(false);
+  const graphStateRef = useRef<{
+    nodes: Node<TreeNodeData>[];
+    edges: typeof edges;
+  }>({
+    nodes,
+    edges,
+  });
   const reactFlow = useReactFlow<Node<TreeNodeData>>();
+
+  useEffect(() => {
+    diveDeepLoadingRef.current = diveDeepLoading;
+  }, [diveDeepLoading]);
+
+  useEffect(() => {
+    graphStateRef.current = { nodes, edges };
+  }, [nodes, edges]);
 
   const applyLayoutAndColors = useCallback(
     (nextNodes: Node<TreeNodeData>[], nextEdges: typeof edges) => {
-      setEdges(nextEdges);
       const layouted = horizontalTreeLayout(
         nextNodes,
         nextEdges,
         LAYOUT_OPTIONS,
       );
-      setNodes(enrichNodesWithBranchColors(layouted, nextEdges));
+      const coloredNodes = enrichNodesWithBranchColors(layouted, nextEdges);
+      graphStateRef.current = { nodes: coloredNodes, edges: nextEdges };
+      setEdges(nextEdges);
+      setNodes(coloredNodes);
     },
     [setEdges, setNodes],
   );
@@ -152,138 +173,155 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
     [setEdges],
   );
 
-  const expandNode = useCallback(async (targetNode: Node<TreeNodeData>) => {
-    const parentId = targetNode.id;
-    const parentLevel = Number(targetNode.data?.level ?? 1);
-    const childLevel = parentLevel + 1;
-    const skeletonNodes: Node<TreeNodeData>[] = Array.from(
-      { length: DIVE_DEEP_SKELETON_COUNT },
-      (_, index) => ({
-        id: `${parentId}--skeleton-${index + 1}`,
-        type: "treeNode",
-        position: { x: 0, y: 0 },
-        data: {
-          label: "Generating...",
-          level: childLevel,
-          metadata: { parent: parentId, skeleton: "true" },
-        } as TreeNodeData,
-      }),
-    );
-    const skeletonEdges = skeletonNodes.map((node, index) => ({
-      id: `e-${parentId}--skeleton-${index + 1}`,
-      source: parentId,
-      target: node.id,
-      type: "treeEdge" as const,
-      sourceHandle: TREE_NODE_SOURCE_HANDLE_ID,
-      targetHandle: TREE_NODE_TARGET_HANDLE_ID,
-    }));
+  const expandNode = useCallback(
+    async (targetNode: Node<TreeNodeData>) => {
+      if (diveDeepLoadingRef.current) return;
+      diveDeepLoadingRef.current = true;
+      setDiveDeepLoading(true);
 
-    const nodesWithoutSkeleton = nodes.filter(
-      (node) =>
-        !(
-          typeof node.data?.metadata === "object" &&
-          node.data?.metadata &&
-          (node.data.metadata as Record<string, unknown>).parent === parentId &&
-          (node.data.metadata as Record<string, unknown>).skeleton === "true"
-        ),
-    );
-    const edgesWithoutSkeleton = edges.filter(
-      (edge) =>
-        !(
-          edge.source === parentId &&
-          edge.target.includes(`${parentId}--skeleton-`)
-        ),
-    );
+      const parentId = targetNode.id;
+      const parentLevel = Number(targetNode.data?.level ?? 1);
+      const childLevel = parentLevel + 1;
+      const skeletonNodes: Node<TreeNodeData>[] = Array.from(
+        { length: DIVE_DEEP_SKELETON_COUNT },
+        (_, index) => ({
+          id: `${parentId}--skeleton-${index + 1}`,
+          type: "treeNode",
+          position: { x: 0, y: 0 },
+          data: {
+            label: "Generating...",
+            level: childLevel,
+            metadata: { parent: parentId, skeleton: "true" },
+          } as TreeNodeData,
+        }),
+      );
+      const skeletonEdges = skeletonNodes.map((node, index) => ({
+        id: `e-${parentId}--skeleton-${index + 1}`,
+        source: parentId,
+        target: node.id,
+        type: "treeEdge" as const,
+        sourceHandle: TREE_NODE_SOURCE_HANDLE_ID,
+        targetHandle: TREE_NODE_TARGET_HANDLE_ID,
+      }));
+      const skeletonNodeIds = new Set(skeletonNodes.map((node) => node.id));
 
-    applyLayoutAndColors(
-      [...nodesWithoutSkeleton, ...skeletonNodes],
-      [...edgesWithoutSkeleton, ...skeletonEdges],
-    );
-    // One-time zoom out on the first dive-deep interaction.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        void reactFlow.fitView({
-          padding: {
-            right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
-          },
-          duration: 350,
-        });
-      });
-    });
-
-    setDiveDeepLoading(true);
-    try {
-      const expandOptions = {
-        nodeLabel: targetNode.data?.label,
-        nodeSummary: targetNode.data?.summary ?? targetNode.data?.description,
-        keywords: Array.isArray(targetNode.data?.keywords)
-          ? targetNode.data.keywords.filter(
-              (keyword): keyword is string =>
-                typeof keyword === "string" && keyword.trim().length > 0,
-            )
-          : undefined,
-        level: parentLevel,
-      };
-
-      const applyPartialExpansion = (data: Awaited<ReturnType<typeof fetchExpandSubtree>>) => {
-        const newFlowNodes = payloadToFlowNodes(data.nodes);
-        const newFlowEdges = payloadToFlowEdges(data.edges);
-        const remainingSkeletonCount = Math.max(
-          0,
-          DIVE_DEEP_SKELETON_COUNT - newFlowNodes.length,
+      const applyExpansionFrame = (
+        frameNodes: Node<TreeNodeData>[],
+        frameEdges: typeof edges,
+      ) => {
+        const frameNodeIds = new Set(frameNodes.map((node) => node.id));
+        const { nodes: currentNodes, edges: currentEdges } =
+          graphStateRef.current;
+        const baseNodes = currentNodes.filter(
+          (node) => !skeletonNodeIds.has(node.id) && !frameNodeIds.has(node.id),
         );
-        const remainingSkeletonNodes = skeletonNodes.slice(0, remainingSkeletonCount);
-        const remainingSkeletonEdges = skeletonEdges.slice(0, remainingSkeletonCount);
+        const baseEdges = currentEdges.filter(
+          (edge) =>
+            !(
+              edge.source === parentId &&
+              (skeletonNodeIds.has(edge.target) ||
+                frameNodeIds.has(edge.target))
+            ),
+        );
         applyLayoutAndColors(
-          [...nodesWithoutSkeleton, ...newFlowNodes, ...remainingSkeletonNodes],
-          [...edgesWithoutSkeleton, ...newFlowEdges, ...remainingSkeletonEdges],
+          [...baseNodes, ...frameNodes],
+          [...baseEdges, ...frameEdges],
         );
       };
 
-      if (pipelineMode === "education") {
-        const finalData = await streamEducationExpandSubtree(
-          parentId,
-          applyPartialExpansion,
-          query,
-          expandOptions,
-        );
-        const finalNodes = payloadToFlowNodes(finalData.nodes);
-        const finalEdges = payloadToFlowEdges(finalData.edges);
-        applyLayoutAndColors(
-          [...nodesWithoutSkeleton, ...finalNodes],
-          [...edgesWithoutSkeleton, ...finalEdges],
-        );
-        if (finalNodes.length > 0) {
-          setFocusNodeId(finalNodes[0].id);
-        }
-      } else {
-        const data = await fetchExpandSubtree(parentId, query, pipelineMode, expandOptions);
-        const newFlowNodes = payloadToFlowNodes(data.nodes);
-        const newFlowEdges = payloadToFlowEdges(data.edges);
+      applyExpansionFrame(skeletonNodes, skeletonEdges);
+      // // One-time zoom out on the first dive-deep interaction.
+      // requestAnimationFrame(() => {
+      //   requestAnimationFrame(() => {
+      //     void reactFlow.fitView({
+      //       padding: {
+      //         right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
+      //       },
+      //       duration: 350,
+      //     });
+      //   });
+      // });
 
-        applyLayoutAndColors(
-          [...nodesWithoutSkeleton, ...newFlowNodes],
-          [...edgesWithoutSkeleton, ...newFlowEdges],
-        );
-        if (newFlowNodes.length > 0) {
-          setFocusNodeId(newFlowNodes[0].id);
+      try {
+        const expandOptions = {
+          nodeLabel: targetNode.data?.label,
+          nodeSummary: targetNode.data?.summary ?? targetNode.data?.description,
+          keywords: Array.isArray(targetNode.data?.keywords)
+            ? targetNode.data.keywords.filter(
+                (keyword): keyword is string =>
+                  typeof keyword === "string" && keyword.trim().length > 0,
+              )
+            : undefined,
+          level: parentLevel,
+        };
+
+        const partialNodesById = new Map<string, Node<TreeNodeData>>();
+        const partialEdgesById = new Map<string, (typeof edges)[number]>();
+        const applyPartialExpansion = (
+          data: Awaited<ReturnType<typeof fetchExpandSubtree>>,
+        ) => {
+          const incomingNodes = payloadToFlowNodes(data.nodes);
+          const incomingEdges = payloadToFlowEdges(data.edges);
+          for (const node of incomingNodes) partialNodesById.set(node.id, node);
+          for (const edge of incomingEdges) partialEdgesById.set(edge.id, edge);
+          const mergedPartialNodes = Array.from(partialNodesById.values());
+          const mergedPartialEdges = Array.from(partialEdgesById.values());
+          const remainingSkeletonCount = Math.max(
+            0,
+            DIVE_DEEP_SKELETON_COUNT - mergedPartialNodes.length,
+          );
+          const remainingSkeletonNodes = skeletonNodes.slice(
+            0,
+            remainingSkeletonCount,
+          );
+          const remainingSkeletonEdges = skeletonEdges.slice(
+            0,
+            remainingSkeletonCount,
+          );
+          applyExpansionFrame(
+            [...mergedPartialNodes, ...remainingSkeletonNodes],
+            [...mergedPartialEdges, ...remainingSkeletonEdges],
+          );
+        };
+
+        if (pipelineMode === "education") {
+          const finalData = await streamEducationExpandSubtree(
+            parentId,
+            applyPartialExpansion,
+            query,
+            expandOptions,
+          );
+          const finalNodes = payloadToFlowNodes(finalData.nodes);
+          const finalEdges = payloadToFlowEdges(finalData.edges);
+          applyExpansionFrame(finalNodes, finalEdges);
+          if (finalNodes.length > 0) {
+            setFocusNodeId(finalNodes[0].id);
+          }
+        } else {
+          const data = await fetchExpandSubtree(
+            parentId,
+            query,
+            pipelineMode,
+            expandOptions,
+          );
+          const newFlowNodes = payloadToFlowNodes(data.nodes);
+          const newFlowEdges = payloadToFlowEdges(data.edges);
+
+          applyExpansionFrame(newFlowNodes, newFlowEdges);
+          if (newFlowNodes.length > 0) {
+            setFocusNodeId(newFlowNodes[0].id);
+          }
         }
+      } catch {
+        // Revert temporary skeleton children when expansion fails.
+        applyExpansionFrame([], []);
+      } finally {
+        diveDeepLoadingRef.current = false;
+        setDiveDeepLoading(false);
       }
-    } catch {
-      // Revert temporary skeleton children when expansion fails.
-      applyLayoutAndColors(nodesWithoutSkeleton, edgesWithoutSkeleton);
-    } finally {
-      setDiveDeepLoading(false);
-    }
-  }, [
-    query,
-    nodes,
-    edges,
-    applyLayoutAndColors,
-    setFocusNodeId,
-    reactFlow,
-    pipelineMode,
-  ]);
+    },
+    [query, applyLayoutAndColors, setFocusNodeId, reactFlow, pipelineMode],
+  );
 
   const onDiveDeep = useCallback(async () => {
     if (!selectedNode) return;
@@ -296,7 +334,7 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
         pipelineMode === "education" &&
         Number(node.data?.level ?? 1) >= 2 &&
         !edges.some((edge) => edge.source === node.id) &&
-        !diveDeepLoading;
+        !diveDeepLoadingRef.current;
 
       if (shouldAutoDiveDeep) {
         await expandNode(node);

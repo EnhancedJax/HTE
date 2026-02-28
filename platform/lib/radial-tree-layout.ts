@@ -30,21 +30,24 @@ function buildTreeFromEdges(edges: Edge[], rootId: string): TreeStub {
     childrenByParent.set(e.source, list);
   }
 
-  if (!childrenByParent.has(rootId)) {
-    throw new Error(
-      `Root id "${rootId}" must appear as source of at least one edge.`,
-    );
-  }
-
-  function makeStub(id: string): TreeStub {
-    const childIds = childrenByParent.get(id) ?? [];
+  function makeStub(id: string, ancestry: Set<string>): TreeStub {
+    if (ancestry.has(id)) {
+      // Break cycles from malformed edge sets.
+      return { id };
+    }
+    const nextAncestry = new Set(ancestry);
+    nextAncestry.add(id);
+    const childIds = Array.from(new Set(childrenByParent.get(id) ?? []));
     return {
       id,
-      children: childIds.length > 0 ? childIds.map(makeStub) : undefined,
+      children:
+        childIds.length > 0
+          ? childIds.map((childId) => makeStub(childId, nextAncestry))
+          : undefined,
     };
   }
 
-  return makeStub(rootId);
+  return makeStub(rootId, new Set<string>());
 }
 
 /**
@@ -78,11 +81,17 @@ export function horizontalTreeLayout<N extends Record<string, unknown>>(
   treeLayout(root);
 
   const result: Node<N>[] = [];
+  const positionedIds = new Set<string>();
   root.each((d: HierarchyNode<TreeStub>) => {
     const node = nodeMap.get(d.data.id);
     if (!node) return;
+    // Defensive dedupe: malformed edge sets can make a node appear under
+    // multiple parents in the hierarchy traversal, which would duplicate
+    // ReactFlow node ids and trigger React key collisions.
+    if (positionedIds.has(node.id)) return;
     const layoutX = d.y ?? 0;
     const layoutY = d.x ?? 0;
+    positionedIds.add(node.id);
     result.push({
       ...node,
       position: {
@@ -91,6 +100,20 @@ export function horizontalTreeLayout<N extends Record<string, unknown>>(
       },
     });
   });
+
+  // Keep nodes that are not reachable from root visible instead of dropping them.
+  const fallbackY = originY + spacingY;
+  let disconnectedIndex = 0;
+  for (const node of nodes) {
+    if (positionedIds.has(node.id)) continue;
+    const x = node.position?.x ?? originX + spacingX;
+    const y = node.position?.y ?? fallbackY + disconnectedIndex * (spacingY / 2);
+    disconnectedIndex += 1;
+    result.push({
+      ...node,
+      position: { x, y },
+    });
+  }
 
   return result;
 }
