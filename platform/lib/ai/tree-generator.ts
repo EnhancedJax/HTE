@@ -1,5 +1,5 @@
 import queryDeepSeek from "@/app/webscrapingPortal/deepseekPortal";
-import queryMiniMax from "@/app/webscrapingPortal/minimaxPortal";
+// import queryMiniMax from "@/app/webscrapingPortal/minimaxPortal";
 import type {
   TreeDataResponse,
   TreeEdgePayload,
@@ -153,7 +153,7 @@ function normalizeTreeDataResponse(
   };
 }
 
-function normalizeTreeExpandResponse(raw: unknown): TreeExpandResponse {
+function normalizeTreeExpandResponse(raw: unknown, parentNodeId: string): TreeExpandResponse {
   const obj = raw as Record<string, unknown>;
   const nodesRaw = Array.isArray(obj.nodes) ? (obj.nodes as unknown[]) : [];
   const edgesRaw = Array.isArray(obj.edges) ? (obj.edges as unknown[]) : [];
@@ -195,6 +195,7 @@ function normalizeTreeExpandResponse(raw: unknown): TreeExpandResponse {
   );
 
   const nodeIds = new Set(nodes.map((n) => n.id));
+  nodeIds.add(parentNodeId);
   const safeEdges = filterEdgesToExistingNodes(edges, nodeIds);
 
   return { nodes, edges: safeEdges };
@@ -283,13 +284,16 @@ export async function generateExpandSubtreeWithLangChain(
     `- Original user query/topic (may be empty): ${JSON.stringify(query)}`,
     `- New nodes must have data.level = ${level}`,
     "- Each node data must include: label (string), level (2|3), summary (1-2 sentences).",
-    "- IDs must be unique, stable, URL-safe (letters/numbers/dashes), and MUST start with `${nodeId}-sub-` followed by a number.",
+    `- IDs must be unique, stable, URL-safe (letters/numbers/dashes), and MUST start with "${nodeId}-sub-" followed by a number.`,
     "",
     "Output shape:",
     '{ "nodes": TreeNodePayload[], "edges": TreeEdgePayload[] }',
   ].join("\n");
 
-  const content = await queryMiniMax(prompt);
+  const content = await queryDeepSeek(prompt, {
+    temperature: 0,
+    max_tokens: 1200,
+  });
   const parsed = extractJsonObject(content);
-  return normalizeTreeExpandResponse(parsed);
+  return normalizeTreeExpandResponse(parsed, nodeId);
 }
