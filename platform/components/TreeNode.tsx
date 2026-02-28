@@ -60,7 +60,7 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
     ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
     : "";
   const skeletonClass = isSkeleton
-    ? "animate-pulse bg-muted/70 text-muted-foreground border-dashed border-muted-foreground/40"
+    ? "skeleton-shimmer bg-muted/70 text-muted-foreground border-dashed border-muted-foreground/40"
     : "";
 
   const style: React.CSSProperties = {

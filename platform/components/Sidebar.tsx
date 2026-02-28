@@ -5,12 +5,12 @@ import { useGraphTreeContext } from "@/lib/graph-tree-context";
 import { useQuery } from "@/lib/query-context";
 import type { TreeItem } from "@/lib/tree-structure";
 import { cn } from "@/lib/utils";
+import { TreeStructureIcon, UserCircleIcon } from "@phosphor-icons/react";
 import {
-  CaretRightIcon,
-  FileIcon,
-  TreeStructureIcon,
-  UserCircleIcon,
-} from "@phosphor-icons/react";
+  CircleIcon,
+  LightbulbIcon,
+  LinuxLogoIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import { AnimatePresence, motion } from "motion/react";
 
 const SIDEBAR_WIDTH = 260;
@@ -45,7 +45,7 @@ function SidebarTreeItem({ item, depth, onSelectNode }: SidebarTreeItemProps) {
           className="group h-8 w-full justify-start gap-2 rounded-md px-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-none font-normal"
           onClick={handleClick}
         >
-          <CaretRightIcon className="size-4 shrink-0 rotate-90" />
+          <CircleIcon className="size-4 shrink-0" />
           <span className="truncate text-left">{item.label}</span>
         </Button>
         <div
@@ -75,7 +75,7 @@ function SidebarTreeItem({ item, depth, onSelectNode }: SidebarTreeItemProps) {
       onClick={handleClick}
     >
       <span className="size-4 shrink-0" aria-hidden />
-      <FileIcon className="size-4 shrink-0" weight="duotone" />
+      <LightbulbIcon className="size-4 shrink-0" weight="duotone" />
       <span className="truncate text-left">{item.label}</span>
     </Button>
   );
@@ -116,12 +116,12 @@ export function Sidebar({ open, className }: SidebarProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
-                className="px-2"
+                className="px-2 h-full"
               >
                 {!query ? (
-                  <p className="px-2 py-4 text-xs text-sidebar-foreground/60">
-                    Search a topic to see the knowledge tree.
-                  </p>
+                  <div className="w-full h-full flex items-center justify-center">
+                    <LinuxLogoIcon className="size-10 text-sidebar-foreground/60" />
+                  </div>
                 ) : status === "loading" ? (
                   <p className="px-2 py-4 text-xs text-sidebar-foreground/60">
                     Loading…

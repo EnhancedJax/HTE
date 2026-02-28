@@ -11,7 +11,7 @@ import {
   type Node,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { LAYOUT_OPTIONS } from "@/hooks/useTreeData";
 import { fetchExpandSubtree } from "@/lib/api/tree";
@@ -81,7 +81,6 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
     null,
   );
   const [diveDeepLoading, setDiveDeepLoading] = useState(false);
-  const hasZoomedOutOnFirstDiveRef = useRef(false);
   const reactFlow = useReactFlow<Node<TreeNodeData>>();
 
   const applyLayoutAndColors = useCallback(
@@ -195,20 +194,17 @@ function GraphTreeFlow({ query }: GraphTreeFlowProps) {
       [...nodesWithoutSkeleton, ...skeletonNodes],
       [...edgesWithoutSkeleton, ...skeletonEdges],
     );
-    if (!hasZoomedOutOnFirstDiveRef.current) {
-      hasZoomedOutOnFirstDiveRef.current = true;
-      // One-time zoom out on the first dive-deep interaction.
+    // One-time zoom out on the first dive-deep interaction.
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          void reactFlow.fitView({
-            padding: {
-              right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
-            },
-            duration: 350,
-          });
+        void reactFlow.fitView({
+          padding: {
+            right: `${NODE_CARD_FIT_PADDING_RIGHT * 2}px`,
+          },
+          duration: 350,
         });
       });
-    }
+    });
 
     setDiveDeepLoading(true);
     try {
