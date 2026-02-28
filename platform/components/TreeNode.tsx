@@ -1,8 +1,10 @@
 "use client";
 
 import {
-  TREE_NODE_CENTER_HANDLE_ID,
   type TreeNodeData,
+  TREE_NODE_DRAG_HANDLE_CLASS,
+  TREE_NODE_SOURCE_HANDLE_ID,
+  TREE_NODE_TARGET_HANDLE_ID,
 } from "@/lib/graph-types";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
@@ -25,26 +27,38 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
   return (
     <div
       className={`
-        tree-node-in relative px-4 py-2.5 rounded-lg border-2 min-w-[100px] text-center font-medium
+        tree-node-in relative flex min-w-[100px] items-stretch rounded-lg border-2
         transition-all duration-200
         ${levelStyles[level]}
         ${selected ? "ring-2 ring-ring ring-offset-2 ring-offset-background" : ""}
       `}
       style={{ animationDelay: `${delay}ms` }}
     >
-      <Handle
-        type="target"
-        id={TREE_NODE_CENTER_HANDLE_ID}
-        position={Position.Top}
-        className="left-1/2! top-1/2! -translate-x-1/2! -translate-y-1/2! w-0! h-0! min-w-0! min-h-0! border-0! opacity-0! pointer-events-none!"
-      />
-      <Handle
-        type="source"
-        id={TREE_NODE_CENTER_HANDLE_ID}
-        position={Position.Bottom}
-        className="left-1/2! top-1/2! -translate-x-1/2! -translate-y-1/2! w-0! h-0! min-w-0! min-h-0! border-0! opacity-0! pointer-events-none!"
-      />
-      <span className="text-sm">{label}</span>
+      {/* Target (incoming) drag handle – edges attach here */}
+      <div
+        className={`${TREE_NODE_DRAG_HANDLE_CLASS} flex w-5 shrink-0 items-center justify-center rounded-l-md border-r border-inherit/30`}
+        title="Drag or connect"
+      >
+        <Handle
+          type="target"
+          position={Position.Left}
+          id={TREE_NODE_TARGET_HANDLE_ID}
+        />
+      </div>
+      <div className="nodrag flex flex-1 items-center justify-center px-3 py-2.5 font-medium">
+        <span className="text-lg">{label}</span>
+      </div>
+      {/* Source (outgoing) drag handle – edges originate here */}
+      <div
+        className={`${TREE_NODE_DRAG_HANDLE_CLASS} flex w-5 shrink-0 items-center justify-center rounded-r-md border-l border-inherit/30`}
+        title="Drag or connect"
+      >
+        <Handle
+          type="source"
+          position={Position.Right}
+          id={TREE_NODE_SOURCE_HANDLE_ID}
+        />
+      </div>
     </div>
   );
 }

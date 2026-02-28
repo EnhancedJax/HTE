@@ -14,26 +14,31 @@ import {
 } from "@xyflow/react";
 import { useCallback, useState } from "react";
 
-import type { TreeNodeData } from "@/lib/graph-types";
 import { useTreeData } from "@/hooks/useTreeData";
-import { CenterToCenterEdge } from "./CenterToCenterEdge";
+import type { TreeNodeData } from "@/lib/graph-types";
 import { NodeCard } from "./NodeCard";
+import { TreeEdge } from "./TreeEdge";
 import { TreeNode } from "./TreeNode";
 
 const nodeTypes = { treeNode: TreeNode };
-const edgeTypes = { centerToCenter: CenterToCenterEdge };
+const edgeTypes = { treeEdge: TreeEdge };
 
 interface GraphTreeInnerProps {
   query?: string;
 }
 
 function GraphTreeInner({ query }: GraphTreeInnerProps) {
-  const { nodes: fetchedNodes, edges: fetchedEdges, status, error, refetch } =
-    useTreeData(query);
+  const {
+    nodes: fetchedNodes,
+    edges: fetchedEdges,
+    status,
+    error,
+    refetch,
+  } = useTreeData(query);
 
   if (status === "loading" || status === "idle") {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-muted/30">
+      <div className="flex h-full w-full items-center justify-center">
         <p className="text-muted-foreground">Loading tree…</p>
       </div>
     );
@@ -41,8 +46,10 @@ function GraphTreeInner({ query }: GraphTreeInnerProps) {
 
   if (status === "error") {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-muted/30 p-4">
-        <p className="text-destructive">{error?.message ?? "Failed to load tree"}</p>
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-4">
+        <p className="text-destructive">
+          {error?.message ?? "Failed to load tree"}
+        </p>
         <button
           type="button"
           onClick={refetch}
@@ -99,16 +106,15 @@ function GraphTreeFlow({ initialNodes, initialEdges }: GraphTreeFlowProps) {
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          defaultEdgeOptions={{ type: "centerToCenter" }}
+          defaultEdgeOptions={{ type: "treeEdge" }}
           fitView
           fitViewOptions={{ padding: 0.2 }}
           minZoom={0.2}
           maxZoom={1.5}
-          nodesDraggable
           nodesConnectable={false}
           elementsSelectable
           proOptions={{ hideAttribution: true }}
-          className="bg-muted/30"
+          className="bg-transparent!"
         >
           <Background
             variant={BackgroundVariant.Dots}

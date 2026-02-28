@@ -1,6 +1,7 @@
 "use client";
 
 import { GraphTree } from "@/components/GraphTree";
+import { motion, AnimatePresence } from "motion/react";
 import "@xyflow/react/dist/style.css";
 import { useState, useCallback } from "react";
 
@@ -17,10 +18,27 @@ export default function Page() {
     [inputValue],
   );
 
+  const hasQuery = query !== undefined && query !== "";
+
   return (
-    <main className="h-screen w-screen flex flex-col">
-      <header className="shrink-0 border-b border-border bg-card px-4 py-3">
-        <form onSubmit={handleSubmit} className="flex gap-2 items-center max-w-2xl">
+    <main
+      className={`w-screen flex flex-col ${hasQuery ? "h-screen" : "min-h-screen bg-white"}`}
+    >
+      <motion.header
+        layout
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className={
+          hasQuery
+            ? "shrink-0 border-b border-border bg-white px-4 py-3"
+            : "flex min-h-screen w-full items-center justify-center bg-white"
+        }
+      >
+        <motion.form
+          layout
+          onSubmit={handleSubmit}
+          className="flex w-full max-w-2xl gap-2 items-center px-4"
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
           <label htmlFor="knowledge-query" className="sr-only">
             Search topic
           </label>
@@ -38,11 +56,22 @@ export default function Page() {
           >
             Research
           </button>
-        </form>
-      </header>
-      <div className="flex-1 min-h-0">
-        <GraphTree query={query} />
-      </div>
+        </motion.form>
+      </motion.header>
+      <AnimatePresence mode="wait">
+        {hasQuery && (
+          <motion.div
+            key="graph"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex-1 min-h-0 h-full"
+          >
+            <GraphTree query={query} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

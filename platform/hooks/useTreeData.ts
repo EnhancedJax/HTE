@@ -2,27 +2,20 @@
 
 import { fetchTreeData } from "@/lib/api/tree";
 import type { TreeNodeData } from "@/lib/graph-types";
-import { radialTreeLayout } from "@/lib/radial-tree-layout";
+import type { TreeLayoutOptions } from "@/lib/radial-tree-layout";
+import { horizontalTreeLayout } from "@/lib/radial-tree-layout";
 import { payloadToFlowEdges, payloadToFlowNodes } from "@/lib/tree-map";
 import type { Edge, Node } from "@xyflow/react";
 import { useCallback, useEffect, useState } from "react";
 
-export type TreeLayoutOptions = {
-  rootId: string;
-  centerX?: number;
-  centerY?: number;
-  radiusStep?: number;
-  nodeWidth?: number;
-  nodeHeight?: number;
-};
-
-const LAYOUT_OPTIONS = {
+const LAYOUT_OPTIONS: TreeLayoutOptions = {
   rootId: "root",
-  centerX: 400,
-  centerY: 350,
-  radiusStep: 400,
-  nodeWidth: 150,
-  nodeHeight: 50,
+  // nodeWidth: 150,
+  // nodeHeight: 50,
+  spacingX: 220,
+  spacingY: 120,
+  originX: 80,
+  originY: 40,
 };
 
 export type TreeDataStatus = "idle" | "loading" | "success" | "error";
@@ -36,7 +29,7 @@ export interface UseTreeDataResult {
 }
 
 /**
- * Fetches tree data from the API, maps to React Flow shape, and applies radial layout.
+ * Fetches tree data from the API, maps to React Flow shape, and applies horizontal layout.
  * Server owns data; client owns fetch, mapping, and layout.
  * @param query — optional user search query (high-level topic) for knowledge research.
  */
@@ -53,7 +46,7 @@ export function useTreeData(query?: string): UseTreeDataResult {
       const data = await fetchTreeData(query);
       const flowNodes = payloadToFlowNodes(data.nodes);
       const flowEdges = payloadToFlowEdges(data.edges);
-      const layoutedNodes = radialTreeLayout(
+      const layoutedNodes = horizontalTreeLayout(
         flowNodes,
         flowEdges,
         LAYOUT_OPTIONS,

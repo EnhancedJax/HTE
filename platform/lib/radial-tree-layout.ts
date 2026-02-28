@@ -1,7 +1,17 @@
-import { TreeLayoutOptions } from "@/hooks/useTreeData";
 import type { Edge, Node } from "@xyflow/react";
 import type { HierarchyNode } from "d3-hierarchy";
 import * as d3 from "d3-hierarchy";
+
+export interface TreeLayoutOptions {
+  rootId: string;
+  /** Horizontal spacing between levels. */
+  spacingX?: number;
+  /** Vertical spacing between siblings. */
+  spacingY?: number;
+  /** Origin offset. */
+  originX?: number;
+  originY?: number;
+}
 
 interface TreeStub {
   id: string;
@@ -10,7 +20,6 @@ interface TreeStub {
 
 /**
  * Builds a tree structure from React Flow edges (parent -> children).
- * Assumes a single root; nodes not appearing as targets of edges are treated as roots.
  */
 function buildTreeFromEdges(edges: Edge[], rootId: string): TreeStub {
   const childrenByParent = new Map<string, string[]>();
@@ -39,21 +48,20 @@ function buildTreeFromEdges(edges: Edge[], rootId: string): TreeStub {
 }
 
 /**
- * Applies a radial tree layout using d3-hierarchy.
- * Root is placed at center; children are arranged in a circle around it by depth.
+ * Applies a horizontal tree layout using d3-hierarchy.
+ * Root on the left; children to the right. Edges run parent right → child left.
  */
-export function radialTreeLayout<N extends Record<string, unknown>>(
+export function horizontalTreeLayout<N extends Record<string, unknown>>(
   nodes: Node<N>[],
   edges: Edge[],
   options: TreeLayoutOptions,
 ): Node<N>[] {
   const {
     rootId,
-    centerX = 400,
-    centerY = 350,
-    radiusStep = 120,
-    nodeWidth = 150,
-    nodeHeight = 50,
+    spacingX = 200,
+    spacingY = 80,
+    originX = 80,
+    originY = 40,
   } = options;
 
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -62,10 +70,9 @@ export function radialTreeLayout<N extends Record<string, unknown>>(
 
   const treeLayout = d3
     .tree<TreeStub>()
-    .size([2 * Math.PI, radiusStep])
-    .separation(
-      (a: HierarchyNode<TreeStub>, b: HierarchyNode<TreeStub>) =>
-        (a.parent === b.parent ? 1 : 1.2) / (a.depth || 1),
+    .nodeSize([spacingY, spacingX])
+    .separation((a: HierarchyNode<TreeStub>, b: HierarchyNode<TreeStub>) =>
+      a.parent === b.parent ? 1 : 1.1,
     );
 
   treeLayout(root);
@@ -74,13 +81,13 @@ export function radialTreeLayout<N extends Record<string, unknown>>(
   root.each((d: HierarchyNode<TreeStub>) => {
     const node = nodeMap.get(d.data.id);
     if (!node) return;
-    const angle = d.x ?? 0;
-    const radius = d.y ?? 0;
+    const layoutX = d.y ?? 0;
+    const layoutY = d.x ?? 0;
     result.push({
       ...node,
       position: {
-        x: centerX + radius * Math.cos(angle) - nodeWidth / 2,
-        y: centerY + radius * Math.sin(angle) - nodeHeight / 2,
+        x: originX + layoutX,
+        y: originY + layoutY,
       },
     });
   });

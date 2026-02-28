@@ -7,5 +7,9 @@ import type { TreeNodeDataPayload } from "@/lib/schemas/tree";
 export type TreeLevel = TreeNodeDataPayload["level"];
 export type TreeNodeData = TreeNodeDataPayload & Record<string, unknown>;
 
-/** Handle id for center-to-center tree edges; must match edge sourceHandle/targetHandle. */
-export const TREE_NODE_CENTER_HANDLE_ID = "center";
+/** Handle id for the source (outgoing) connection; must match edge sourceHandle. */
+export const TREE_NODE_SOURCE_HANDLE_ID = "source";
+/** Handle id for the target (incoming) connection; must match edge targetHandle. */
+export const TREE_NODE_TARGET_HANDLE_ID = "target";
+/** Class for the drag handle element; node dragHandle option must match so edges originate from handles. */
+export const TREE_NODE_DRAG_HANDLE_CLASS = "tree-node-drag-handle";
