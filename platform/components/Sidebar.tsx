@@ -1,17 +1,26 @@
 "use client";
 
+import { useChat } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useGraphTreeContext } from "@/lib/graph-tree-context";
 import { useQuery } from "@/lib/query-context";
 import type { TreeItem } from "@/lib/tree-structure";
 import { cn } from "@/lib/utils";
-import { TreeStructureIcon, UserCircleIcon } from "@phosphor-icons/react";
+import { DefaultChatTransport } from "ai";
+import {
+  ChatCircleTextIcon,
+  PaperPlaneRightIcon,
+  TreeStructureIcon,
+  UserCircleIcon,
+} from "@phosphor-icons/react";
 import {
   CircleIcon,
   LightbulbIcon,
   LinuxLogoIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { AnimatePresence, motion } from "motion/react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 const SIDEBAR_WIDTH = 260;
 
@@ -28,6 +37,8 @@ interface SidebarTreeItemProps {
   depth: number;
   onSelectNode: (nodeId: string) => void;
 }
+
+type SidebarView = "tree" | "chat";
 
 function SidebarTreeItem({ item, depth, onSelectNode }: SidebarTreeItemProps) {
   const hasChildren = item.children && item.children.length > 0;
@@ -84,6 +95,32 @@ function SidebarTreeItem({ item, depth, onSelectNode }: SidebarTreeItemProps) {
 export function Sidebar({ open, className }: SidebarProps) {
   const { query } = useQuery();
   const { treeRoot, status, setFocusNodeId } = useGraphTreeContext();
+  const [activeView, setActiveView] = useState<SidebarView>("tree");
+  const [chatInput, setChatInput] = useState("");
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const { messages, sendMessage, status: chatStatus } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+    }),
+  });
+
+  useEffect(() => {
+    messagesContainerRef.current?.scrollTo({
+      top: messagesContainerRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages, chatStatus]);
+
+  const handleSendChatMessage = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const value = chatInput.trim();
+    if (!value) {
+      return;
+    }
+    sendMessage({ text: value });
+    setChatInput("");
+  };
 
   return (
     <motion.aside
@@ -107,37 +144,124 @@ export function Sidebar({ open, className }: SidebarProps) {
             </span>
           </span>
         </div>
+        <div className="shrink-0 border-b border-sidebar-border px-2 py-2">
+          <div className="grid grid-cols-2 rounded-xl bg-sidebar-accent/50 p-1">
+            <Button
+              variant={activeView === "tree" ? "secondary" : "ghost"}
+              size="sm"
+              className="justify-center gap-1.5"
+              onClick={() => setActiveView("tree")}
+              aria-pressed={activeView === "tree"}
+            >
+              <TreeStructureIcon className="size-4" />
+              <span className="text-xs">Tree</span>
+            </Button>
+            <Button
+              variant={activeView === "chat" ? "secondary" : "ghost"}
+              size="sm"
+              className="justify-center gap-1.5"
+              onClick={() => setActiveView("chat")}
+              aria-pressed={activeView === "chat"}
+            >
+              <ChatCircleTextIcon className="size-4" />
+              <span className="text-xs">AI Chat</span>
+            </Button>
+          </div>
+        </div>
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2">
           <AnimatePresence mode="wait">
             {open && (
               <motion.div
-                key="tree"
+                key={activeView}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
                 className="px-2 h-full"
               >
-                {!query ? (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <LinuxLogoIcon className="size-10 text-sidebar-foreground/60" />
-                  </div>
-                ) : status === "loading" ? (
-                  <p className="px-2 py-4 text-xs text-sidebar-foreground/60">
-                    Loading…
-                  </p>
-                ) : treeRoot ? (
-                  <div className="flex flex-col gap-0.5">
-                    <SidebarTreeItem
-                      item={treeRoot}
-                      depth={0}
-                      onSelectNode={setFocusNodeId}
-                    />
-                  </div>
+                {activeView === "tree" ? (
+                  !query ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <LinuxLogoIcon className="size-10 text-sidebar-foreground/60" />
+                    </div>
+                  ) : status === "loading" ? (
+                    <p className="px-2 py-4 text-xs text-sidebar-foreground/60">
+                      Loading…
+                    </p>
+                  ) : treeRoot ? (
+                    <div className="flex flex-col gap-0.5">
+                      <SidebarTreeItem
+                        item={treeRoot}
+                        depth={0}
+                        onSelectNode={setFocusNodeId}
+                      />
+                    </div>
+                  ) : (
+                    <p className="px-2 py-4 text-xs text-sidebar-foreground/60">
+                      No tree data.
+                    </p>
+                  )
                 ) : (
-                  <p className="px-2 py-4 text-xs text-sidebar-foreground/60">
-                    No tree data.
-                  </p>
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div
+                      ref={messagesContainerRef}
+                      className="min-h-0 flex-1 space-y-2 overflow-y-auto px-1 py-1"
+                    >
+                      {messages.length === 0 ? (
+                        <p className="px-2 py-3 text-xs text-sidebar-foreground/60">
+                          Ask anything about the current topic. Responses stream
+                          in real time.
+                        </p>
+                      ) : (
+                        messages.map((message) => (
+                          <div
+                            key={message.id}
+                            className={cn(
+                              "rounded-xl px-3 py-2 text-sm",
+                              message.role === "user"
+                                ? "ml-8 bg-primary text-primary-foreground"
+                                : "mr-8 bg-sidebar-accent text-sidebar-foreground",
+                            )}
+                          >
+                            {message.parts.map((part, index) =>
+                              part.type === "text" ? (
+                                <p
+                                  key={`${message.id}-${index}`}
+                                  className="whitespace-pre-wrap"
+                                >
+                                  {part.text}
+                                </p>
+                              ) : null,
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <form
+                      onSubmit={handleSendChatMessage}
+                      className="mt-2 flex items-center gap-2 border-t border-sidebar-border pt-2"
+                    >
+                      <Input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder="Ask the AI assistant..."
+                        className="h-9 rounded-xl text-sm"
+                      />
+                      <Button
+                        type="submit"
+                        size="icon-sm"
+                        disabled={!chatInput.trim() || chatStatus === "streaming"}
+                        aria-label="Send message"
+                      >
+                        <PaperPlaneRightIcon className="size-4" weight="fill" />
+                      </Button>
+                    </form>
+                    {chatStatus === "streaming" && (
+                      <p className="px-1 pt-1 text-xs text-sidebar-foreground/60">
+                        AI is typing...
+                      </p>
+                    )}
+                  </div>
                 )}
               </motion.div>
             )}
