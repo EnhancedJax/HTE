@@ -2,6 +2,7 @@
 
 import { AnimatedGroup, AnimatedGroupProps } from "@/components/AnimatedGroup";
 import { GraphTree } from "@/components/GraphTree";
+import { useQuery } from "@/lib/query-context";
 import { RocketLaunchIcon } from "@phosphor-icons/react/dist/ssr";
 import "@xyflow/react/dist/style.css";
 import { AnimatePresence, motion } from "motion/react";
@@ -34,7 +35,7 @@ const variants: AnimatedGroupProps["variants"] = {
 
 export default function Page() {
   const [inputValue, setInputValue] = useState("");
-  const [query, setQuery] = useState<string | undefined>(undefined);
+  const { query, setQuery } = useQuery();
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -42,7 +43,7 @@ export default function Page() {
       const q = inputValue.trim();
       setQuery(q || undefined);
     },
-    [inputValue],
+    [inputValue, setQuery],
   );
 
   const hasQuery = query !== undefined && query !== "";
