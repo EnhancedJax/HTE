@@ -174,7 +174,7 @@ export default function Page() {
                     weight="bold"
                     aria-hidden
                   />
-                  {pipelineMode === "education" ? "Learn" : "Research"}
+                  {pipelineMode === "education" ? "Explore" : "Research"}
                 </div>
               </AnimatedShinyButton>
             )}

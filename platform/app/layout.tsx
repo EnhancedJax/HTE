@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
-import { Google_Sans, Google_Sans_Code } from "next/font/google";
+import { SidebarLayout } from "@/components/SidebarLayout";
 import { GraphTreeProvider } from "@/lib/graph-tree-context";
 import { QueryProvider } from "@/lib/query-context";
-import { SidebarLayout } from "@/components/SidebarLayout";
+import type { Metadata } from "next";
+import { Google_Sans, Google_Sans_Code } from "next/font/google";
 import "./globals.css";
 
 const customSans = Google_Sans({
@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className={`${customSans.variable} ${customMono.variable} antialiased`}
       >
