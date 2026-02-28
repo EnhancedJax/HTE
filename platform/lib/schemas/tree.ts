@@ -5,7 +5,7 @@
  */
 
 export const TREE_LEVELS = [1, 2, 3] as const;
-export type TreeLevel = (typeof TREE_LEVELS)[number];
+export type TreeLevel = number;
 
 /** Related link or source for a topic node. */
 export interface RelatedLinkPayload {
@@ -25,6 +25,8 @@ export interface TreeNodeDataPayload {
   images?: string[];
   /** Related links or sources. */
   relatedLinks?: RelatedLinkPayload[];
+  /** 3-4 highlighted learning keywords used for quick expansion. */
+  keywords?: string[];
   metadata?: Record<string, string>;
 }
 

@@ -23,6 +23,9 @@ export function NodeCard({
   diveDeepLoading,
 }: NodeCardProps) {
   const summary = data.summary ?? data.description;
+  const keywords = Array.isArray(data.keywords)
+    ? data.keywords.filter((k): k is string => typeof k === "string" && k.trim().length > 0)
+    : [];
   const images = data.images ?? [];
   const relatedLinks = data.relatedLinks ?? [];
 
@@ -72,6 +75,23 @@ export function NodeCard({
             <p className="text-sm text-foreground/90 leading-relaxed">
               {summary}
             </p>
+          </div>
+        )}
+        {keywords.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+              Highlighted Keywords
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {keywords.slice(0, 4).map((keyword) => (
+                <span
+                  key={keyword}
+                  className="rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
           </div>
         )}
         {images.length > 0 && (

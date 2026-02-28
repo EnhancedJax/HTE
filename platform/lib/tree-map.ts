@@ -39,7 +39,7 @@ export function enrichNodesWithBranchColors(
 
   return nodes.map((node) => {
     const level = node.data?.level as number | undefined;
-    const bi = level === 2 || level === 3 ? getBranchIndex(node.id) : undefined;
+    const bi = level !== undefined && level >= 2 ? getBranchIndex(node.id) : undefined;
     if (bi === undefined) return node;
     return {
       ...node,

@@ -27,7 +27,7 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
-  const level = (data?.level ?? 1) as 1 | 2 | 3;
+  const level = Number(data?.level ?? 1);
   const metadata =
     data?.metadata && typeof data.metadata === "object"
       ? (data.metadata as Record<string, unknown>)
@@ -44,14 +44,14 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
       : null;
 
   const isLevel2 = level === 2 && color;
-  const isLevel3 = level === 3 && color;
+  const isDeeperLevel = level >= 3 && color;
 
   const baseClass =
     "tree-node-in relative px-4 py-2.5 rounded-lg border-2 min-w-[100px] text-center font-medium transition-all duration-200";
   const levelClass =
     level === 1
       ? level1Styles
-      : isLevel2 || isLevel3
+      : isLevel2 || isDeeperLevel
         ? "border-current"
         : level === 2
           ? "bg-secondary text-secondary-foreground border-secondary"
@@ -72,7 +72,7 @@ export function TreeNode({ data, selected }: NodeProps<TreeNodeType>) {
       borderColor: color,
       }),
     ...(!isSkeleton &&
-      isLevel3 && {
+      isDeeperLevel && {
       backgroundColor: hexToRgba(color, L3_BG_OPACITY),
       color: color,
       borderColor: color,
