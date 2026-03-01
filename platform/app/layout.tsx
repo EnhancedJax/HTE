@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   title: "ConceptBranch KTE",
   description:
     "ConceptBranch KTE is a knowledge tree explorer that uses AI to generate a tree of knowledge based on a given topic.",
+  icons: {
+    icon: "/linux-logo-fill.png",
+  },
 };
 
 export default function RootLayout({
